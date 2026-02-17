@@ -1,0 +1,149 @@
+[
+    {
+        "id": 1,
+        "title": "Q4 2025 Revenue Report",
+        "content": "Q4 2025 showed exceptional growth with total revenue reaching $12.5M, representing a 25% increase compared to Q4 2024. The main drivers were enterprise subscriptions (+35%) and professional services (+18%). Our gross margin improved to 72%, up from 68% in the previous quarter.",
+        "category": "finance",
+        "department": "Finance",
+        "date": "2025-12-31",
+        "author": "Sarah Chen",
+        "tags": [
+            "revenue",
+            "quarterly-report",
+            "growth"
+        ]
+    },
+    {
+        "id": 2,
+        "title": "User Engagement Metrics - January 2026",
+        "content": "Daily active users (DAU) reached 1.2M in January 2026, a new milestone for the platform. User retention rate improved to 78%, up 15% from last quarter. Average session duration increased to 23 minutes. Mobile users now represent 65% of total traffic.",
+        "category": "analytics",
+        "department": "Product",
+        "date": "2026-01-31",
+        "author": "Marcus Rodriguez",
+        "tags": [
+            "engagement",
+            "users",
+            "mobile",
+            "retention"
+        ]
+    },
+    {
+        "id": 3,
+        "title": "Customer Satisfaction Survey Results",
+        "content": "Our latest customer satisfaction survey shows a CSAT score of 4.5 out of 5, with 89% of customers rating their experience as 'good' or 'excellent'. Net Promoter Score (NPS) increased to 45, up from 38 last quarter. Top satisfaction drivers: product reliability (92%), customer support (88%), and ease of use (85%).",
+        "category": "customer-feedback",
+        "department": "Customer Success",
+        "date": "2026-01-20",
+        "author": "Emily Watson",
+        "tags": [
+            "satisfaction",
+            "nps",
+            "survey",
+            "feedback"
+        ]
+    },
+    {
+        "id": 4,
+        "title": "Sales Pipeline Update - Q1 2026",
+        "content": "Current sales pipeline value stands at $8.3M across 145 opportunities. Enterprise deals (>$100K) represent 62% of pipeline value. Average deal size increased to $57K, up 12% from last quarter. Sales cycle duration decreased to 45 days on average. Win rate improved to 32%.",
+        "category": "sales",
+        "department": "Sales",
+        "date": "2026-02-01",
+        "author": "David Kim",
+        "tags": [
+            "pipeline",
+            "sales",
+            "deals",
+            "enterprise"
+        ]
+    },
+    {
+        "id": 5,
+        "title": "Product Feature Adoption Analysis",
+        "content": "New features released in Q4 2025 show strong adoption. AI-powered recommendations: 67% adoption rate among active users. Advanced analytics dashboard: 45% adoption. Collaboration tools: 82% adoption. Users who adopt 3+ features show 2.3x higher retention rates.",
+        "category": "product",
+        "department": "Product",
+        "date": "2026-01-15",
+        "author": "Lisa Park",
+        "tags": [
+            "features",
+            "adoption",
+            "product-analytics"
+        ]
+    },
+    {
+        "id": 6,
+        "title": "Marketing Campaign Performance - January",
+        "content": "January marketing campaigns generated 12,500 leads with a cost per lead of $45. Email campaigns achieved 28% open rate and 4.2% click-through rate. Social media engagement increased 40% month-over-month. Content marketing drove 35% of organic traffic. Paid search ROI: 3.2x.",
+        "category": "marketing",
+        "department": "Marketing",
+        "date": "2026-01-31",
+        "author": "Jennifer Martinez",
+        "tags": [
+            "campaigns",
+            "leads",
+            "marketing",
+            "roi"
+        ]
+    },
+    {
+        "id": 7,
+        "title": "Infrastructure Performance Metrics",
+        "content": "System uptime maintained at 99.97% in January. Average API response time: 145ms (target: <200ms). Database query performance improved 23% after optimization. Cloud infrastructure costs decreased 8% through resource optimization. Zero security incidents reported.",
+        "category": "infrastructure",
+        "department": "Engineering",
+        "date": "2026-02-01",
+        "author": "Alex Thompson",
+        "tags": [
+            "uptime",
+            "performance",
+            "infrastructure",
+            "optimization"
+        ]
+    },
+    {
+        "id": 8,
+        "title": "Employee Engagement Survey Results",
+        "content": "Q1 2026 employee engagement survey shows 82% overall satisfaction. Key highlights: work-life balance (85%), career development opportunities (78%), management support (80%). Employee Net Promoter Score (eNPS): +52. Voluntary turnover rate decreased to 8% annually.",
+        "category": "hr",
+        "department": "Human Resources",
+        "date": "2026-02-05",
+        "author": "Rachel Green",
+        "tags": [
+            "engagement",
+            "employees",
+            "culture",
+            "retention"
+        ]
+    },
+    {
+        "id": 9,
+        "title": "Support Ticket Analysis - January 2026",
+        "content": "Support team handled 3,450 tickets in January with an average resolution time of 4.2 hours. First response time: 18 minutes (target: <30 min). Customer satisfaction rating: 4.6/5. Top issue categories: account access (28%), billing questions (22%), feature requests (18%). 65% of tickets resolved on first contact.",
+        "category": "support",
+        "department": "Customer Support",
+        "date": "2026-01-31",
+        "author": "Tom Anderson",
+        "tags": [
+            "support",
+            "tickets",
+            "resolution-time",
+            "customer-service"
+        ]
+    },
+    {
+        "id": 10,
+        "title": "Competitive Analysis Update",
+        "content": "Market analysis shows our product ranks #2 in customer satisfaction among top 5 competitors. Our pricing is positioned at mid-market level. Key differentiators: AI capabilities (leading), integration ecosystem (2nd), mobile experience (leading). Main competitor launched similar feature set, requiring strategic response.",
+        "category": "strategy",
+        "department": "Strategy",
+        "date": "2026-02-10",
+        "author": "Michael Chang",
+        "tags": [
+            "competition",
+            "market-analysis",
+            "positioning"
+        ]
+    }
+]

@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment variables
+.env
+.venv
+env/
+venv/
+.conda/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Jupyter Notebooks
+.ipynb_checkpoints
+
+# Project specific
+vector_db/
+rag_system.log
+*.log
+
+# OS specific
+.DS_Store
+
+TODO.md
+keytable-data.json

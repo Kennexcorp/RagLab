@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "rag-dashboard": {
+      "command": "python",
+      "args": [
+        "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/mcp_server.py"
+      ],
+      "env": {
+        "PYTHONPATH": "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)"
+      }
+    }
+  }
+}
