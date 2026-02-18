@@ -9,7 +9,7 @@ from typing import List, Dict, Any, Optional
 
 from config import Config
 from vector_store import VectorStore
-from hybrid_search import LangChainHybridRetriever, LangChainVectorRetrieverWrapper
+from hybrid_search import LangChainHybridRetriever
 from utils import setup_logging, timer, format_context_for_llm, count_tokens
 
 
@@ -38,18 +38,12 @@ class Retriever:
                 keyword_weight=Config.KEYWORD_WEIGHT,
                 log_level=log_level,
             )
-            # Wrap our vector store for LangChain compatibility
-            self.vector_retriever_wrapper = LangChainVectorRetrieverWrapper(
-                vector_store=self.vector_store,
-                k=20,  # Retrieve more for ensemble fusion
-            )
             self.logger.info(
                 f"LangChain hybrid search enabled "
                 f"(semantic: {Config.SEMANTIC_WEIGHT:.0%}, keyword: {Config.KEYWORD_WEIGHT:.0%})"
             )
         else:
             self.hybrid_retriever = None
-            self.vector_retriever_wrapper = None
             self.logger.info("Using semantic search only")
 
         # Attempt to load saved hybrid index on initialization
@@ -110,8 +104,11 @@ class Retriever:
 
         if use_hybrid and self.hybrid_retriever and self.hybrid_retriever.is_fitted:
             self.logger.debug("Using LangChain EnsembleRetriever")
+            # Create a fresh retriever each call so it always binds to the current
+            # Chroma collection (important after clear_collection() recreates Chroma).
+            vector_retriever = self.vector_store.as_retriever(k=20)
             results = self.hybrid_retriever.search(
-                query, self.vector_retriever_wrapper, top_k=top_k
+                query, vector_retriever, top_k=top_k
             )
 
             # Add similarity scores (not provided by ensemble, use rank-based)
@@ -141,62 +138,18 @@ class Retriever:
         self.logger.info(f"Retrieved {len(final_results)} relevant documents")
         return final_results
 
-    def retrieve_with_reranking(
-        self, query: str, top_k: int = None, initial_k: int = None
-    ) -> List[Dict[str, Any]]:
-        """
-        Retrieve documents with two-stage retrieval (retrieve more, then rerank).
-
-        Args:
-            query: User query
-            top_k: Final number of results to return
-            initial_k: Number of results to retrieve initially (before reranking)
-
-        Returns:
-            List of reranked relevant documents
-        """
-        top_k = top_k or self.top_k
-        initial_k = initial_k or (top_k * 3)  # Retrieve 3x more initially
-
-        self.logger.info(
-            f"Retrieving with reranking (initial_k={initial_k}, final_k={top_k})"
-        )
-
-        # Initial retrieval
-        initial_results = self.retrieve(query, top_k=initial_k)
-
-        # Simple reranking: sort by similarity score
-        # In production, you could use a cross-encoder model here
-        reranked_results = sorted(
-            initial_results, key=lambda x: x.get("similarity_score", 0), reverse=True
-        )[:top_k]
-
-        self.logger.info(f"Reranked to {len(reranked_results)} documents")
-        return reranked_results
-
-    def build_context(
-        self, query: str, top_k: int = None, use_reranking: bool = None
-    ) -> Dict[str, Any]:
+    def build_context(self, query: str, top_k: int = None) -> Dict[str, Any]:
         """
         Build context for LLM generation.
 
         Args:
             query: User query
             top_k: Number of documents to retrieve
-            use_reranking: Whether to use reranking
 
         Returns:
             Dictionary with context string and source documents
         """
-        use_reranking = (
-            use_reranking if use_reranking is not None else Config.USE_RERANKING
-        )
-
-        # Retrieve documents
-        if use_reranking:
-            documents = self.retrieve_with_reranking(query, top_k=top_k)
-        else:
-            documents = self.retrieve(query, top_k=top_k)
+        documents = self.retrieve(query, top_k=top_k)
 
         if not documents:
             self.logger.warning("No relevant documents found")
@@ -241,12 +194,7 @@ class Retriever:
 
         self.logger.info(f"Retrieving by metadata: {metadata_filter}")
 
-        # Use a generic query since we're filtering by metadata
-        results = self.vector_store.search(
-            query="", top_k=top_k, metadata_filter=metadata_filter
-        )
-
-        return results
+        return self.vector_store.get_by_metadata(metadata_filter, top_k=top_k)
 
 
 if __name__ == "__main__":

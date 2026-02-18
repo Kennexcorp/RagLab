@@ -5,8 +5,9 @@ Combines semantic vector search with BM25 keyword search.
 
 import logging
 import pickle
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from pathlib import Path
+
 from langchain_classic.retrievers import EnsembleRetriever
 from langchain_community.retrievers import BM25Retriever
 from langchain_core.documents import Document
@@ -18,6 +19,9 @@ class LangChainHybridRetriever:
     """
     Hybrid retriever using LangChain's EnsembleRetriever.
     Combines BM25 keyword search with semantic vector search.
+
+    The vector_retriever passed to search() and create_ensemble() must be a
+    LangChain BaseRetriever — use VectorStore.as_retriever() to obtain one.
     """
 
     def __init__(
@@ -35,8 +39,6 @@ class LangChainHybridRetriever:
             log_level: Logging level
         """
         self.logger = setup_logging(log_level)
-        self.semantic_weight = semantic_weight
-        self.keyword_weight = keyword_weight
 
         # Normalize weights
         total = semantic_weight + keyword_weight
@@ -45,7 +47,6 @@ class LangChainHybridRetriever:
 
         self.bm25_retriever = None
         self.ensemble_retriever = None
-        self.documents = []
         self.is_fitted = False
 
         self.logger.info(
@@ -64,19 +65,14 @@ class LangChainHybridRetriever:
             self.logger.warning("No documents to fit")
             return
 
-        # Convert to LangChain Document format
-        langchain_docs = []
-        for doc in documents:
-            langchain_docs.append(
-                Document(page_content=doc["text"], metadata=doc.get("metadata", {}))
-            )
+        lc_docs = [
+            Document(page_content=doc["text"], metadata=doc.get("metadata", {}))
+            for doc in documents
+        ]
 
-        self.documents = langchain_docs
-
-        # Initialize BM25 retriever
-        self.bm25_retriever = BM25Retriever.from_documents(langchain_docs)
+        self.bm25_retriever = BM25Retriever.from_documents(lc_docs)
         self.bm25_retriever.k = 20  # Retrieve more for fusion
-
+        self.ensemble_retriever = None  # Reset so it's rebuilt on next search
         self.is_fitted = True
         self.logger.info(f"BM25 retriever fitted on {len(documents)} documents")
 
@@ -114,6 +110,7 @@ class LangChainHybridRetriever:
             with open(path, "rb") as f:
                 self.bm25_retriever = pickle.load(f)
             self.is_fitted = True
+            self.ensemble_retriever = None
             self.logger.info(f"Loaded BM25 index from {path}")
         except Exception as e:
             self.logger.error(f"Failed to load BM25 index: {str(e)}")
@@ -123,13 +120,12 @@ class LangChainHybridRetriever:
         Create ensemble retriever combining BM25 and vector search.
 
         Args:
-            vector_retriever: LangChain-compatible vector retriever
+            vector_retriever: LangChain BaseRetriever (e.g. VectorStore.as_retriever())
         """
         if not self.is_fitted:
             self.logger.error("BM25 retriever not fitted. Call fit() first.")
             return None
 
-        # Create ensemble with weighted retrievers
         self.ensemble_retriever = EnsembleRetriever(
             retrievers=[self.bm25_retriever, vector_retriever],
             weights=[self.keyword_weight, self.semantic_weight],
@@ -146,85 +142,34 @@ class LangChainHybridRetriever:
 
         Args:
             query: Search query
-            vector_retriever: LangChain vector retriever
+            vector_retriever: LangChain BaseRetriever (from VectorStore.as_retriever())
             top_k: Number of results to return
 
         Returns:
-            List of search results
+            List of search results with text, metadata, and rank
         """
         if not self.is_fitted:
             self.logger.warning("BM25 not fitted, cannot perform hybrid search")
             return []
 
-        # Create or update ensemble
         if self.ensemble_retriever is None:
             self.create_ensemble(vector_retriever)
 
-        # Perform search
         results = self.ensemble_retriever.invoke(query)
 
-        # Convert back to our format
-        formatted_results = []
-        for i, doc in enumerate(results[:top_k]):
-            formatted_results.append(
-                {"text": doc.page_content, "metadata": doc.metadata, "rank": i + 1}
-            )
+        formatted = [
+            {"text": doc.page_content, "metadata": doc.metadata, "rank": i + 1}
+            for i, doc in enumerate(results[:top_k])
+        ]
 
-        self.logger.info(f"Hybrid search returned {len(formatted_results)} results")
-        return formatted_results
-
-
-from langchain_core.retrievers import BaseRetriever
-from langchain_core.callbacks import CallbackManagerForRetrieverRun
-
-
-class LangChainVectorRetrieverWrapper(BaseRetriever):
-    """
-    Wrapper to make our VectorStore compatible with LangChain retrievers.
-    """
-
-    vector_store: Any
-    k: int = 20
-
-    def _get_relevant_documents(
-        self, query: str, *, run_manager: CallbackManagerForRetrieverRun = None
-    ) -> List[Document]:
-        """
-        Get relevant documents for a query.
-
-        Args:
-            query: Search query
-            run_manager: Callback manager
-
-        Returns:
-            List of LangChain Document objects
-        """
-        # Search our vector store
-        results = self.vector_store.search(query, top_k=self.k)
-
-        # Convert to LangChain Documents
-        documents = []
-        for result in results:
-            documents.append(
-                Document(
-                    page_content=result["text"], metadata=result.get("metadata", {})
-                )
-            )
-
-        return documents
-
-    async def _aget_relevant_documents(
-        self, query: str, *, run_manager: CallbackManagerForRetrieverRun = None
-    ) -> List[Document]:
-        """Async version (calls sync for now)."""
-        return self._get_relevant_documents(query, run_manager=run_manager)
+        self.logger.info(f"Hybrid search returned {len(formatted)} results")
+        return formatted
 
 
 if __name__ == "__main__":
     # Example usage
     from vector_store import VectorStore
 
-    # Sample documents
     sample_docs = [
         {
             "text": "Q4 revenue increased by 25% to $10M",
@@ -240,20 +185,14 @@ if __name__ == "__main__":
         },
     ]
 
-    # Initialize components
     vector_store = VectorStore()
     vector_store.add_documents(sample_docs)
 
-    # Create LangChain wrapper
-    vector_retriever = LangChainVectorRetrieverWrapper(vector_store=vector_store, k=10)
-
-    # Initialize hybrid retriever
     hybrid = LangChainHybridRetriever(semantic_weight=0.7, keyword_weight=0.3)
     hybrid.fit(sample_docs)
 
-    # Perform search
     query = "Q4 revenue performance"
-    results = hybrid.search(query, vector_retriever, top_k=3)
+    results = hybrid.search(query, vector_store.as_retriever(k=10), top_k=3)
 
     print(f"\nHybrid search results for: '{query}'")
     for i, result in enumerate(results, 1):

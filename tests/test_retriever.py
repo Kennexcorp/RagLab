@@ -33,6 +33,7 @@ class TestRetriever:
             },
         ]
         self.vector_store.add_documents(test_docs)
+        self.retriever.fit_hybrid_search(test_docs)  # required for hybrid path
 
         yield
 

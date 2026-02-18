@@ -1,20 +1,22 @@
 """
 Vector store module for RAG system.
-Handles embedding generation and vector database operations using ChromaDB.
+Uses LangChain's Chroma integration and HuggingFaceEmbeddings for simplified
+embedding generation and vector database operations.
 """
 
 import logging
 from typing import List, Dict, Any, Optional
-import chromadb
-from chromadb.config import Settings
-from sentence_transformers import SentenceTransformer
+
+from langchain_chroma import Chroma
+from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_core.documents import Document
 
 from config import Config
 from utils import setup_logging, timer, retry_on_error
 
 
 class VectorStore:
-    """Manage vector embeddings and similarity search using ChromaDB."""
+    """Manage vector embeddings and similarity search using LangChain's Chroma."""
 
     def __init__(
         self,
@@ -27,50 +29,30 @@ class VectorStore:
         Initialize VectorStore.
 
         Args:
-            collection_name: Name of the collection
-            embedding_model: Name of the embedding model
+            collection_name: Name of the ChromaDB collection
+            embedding_model: HuggingFace model name for embeddings
             persist_directory: Directory to persist the database
             log_level: Logging level
         """
         self.logger = setup_logging(log_level)
 
-        # Use config values as defaults
         self.collection_name = collection_name or Config.COLLECTION_NAME
         self.embedding_model_name = embedding_model or Config.EMBEDDING_MODEL
         self.persist_directory = persist_directory or Config.PERSIST_DIRECTORY
 
-        # Initialize embedding model
         self.logger.info(f"Loading embedding model: {self.embedding_model_name}")
-        self.embedding_model = SentenceTransformer(self.embedding_model_name)
+        self.embeddings = HuggingFaceEmbeddings(model_name=self.embedding_model_name)
 
-        # Initialize ChromaDB client
         self.logger.info(f"Initializing ChromaDB at {self.persist_directory}")
-        self.client = chromadb.PersistentClient(path=self.persist_directory)
-
-        # Get or create collection
-        self.collection = self.client.get_or_create_collection(
-            name=self.collection_name,
-            metadata={"description": "Dashboard data for RAG system"},
+        self.chroma = Chroma(
+            collection_name=self.collection_name,
+            embedding_function=self.embeddings,
+            persist_directory=self.persist_directory,
         )
 
         self.logger.info(
             f"Vector store initialized with collection: {self.collection_name}"
         )
-
-    @timer
-    def generate_embeddings(self, texts: List[str]) -> List[List[float]]:
-        """
-        Generate embeddings for a list of texts.
-
-        Args:
-            texts: List of text strings
-
-        Returns:
-            List of embedding vectors
-        """
-        self.logger.debug(f"Generating embeddings for {len(texts)} texts")
-        embeddings = self.embedding_model.encode(texts, show_progress_bar=False)
-        return embeddings.tolist()
 
     @retry_on_error(max_retries=3, delay=1.0)
     def add_documents(self, documents: List[Dict[str, Any]]) -> None:
@@ -86,34 +68,17 @@ class VectorStore:
 
         self.logger.info(f"Adding {len(documents)} documents to vector store")
 
-        # Extract texts and metadata
-        texts = [doc["text"] for doc in documents]
-        metadatas = [doc.get("metadata", {}) for doc in documents]
+        lc_docs = []
+        for doc in documents:
+            # Stringify metadata values — ChromaDB requirement
+            metadata = {
+                k: str(v)
+                for k, v in doc.get("metadata", {}).items()
+                if v is not None
+            }
+            lc_docs.append(Document(page_content=doc["text"], metadata=metadata))
 
-        # Generate IDs
-        existing_count = self.collection.count()
-        ids = [f"doc_{existing_count + i}" for i in range(len(documents))]
-
-        # Generate embeddings
-        embeddings = self.generate_embeddings(texts)
-
-        # Convert metadata values to strings (ChromaDB requirement)
-        processed_metadatas = []
-        for metadata in metadatas:
-            processed_metadata = {}
-            for key, value in metadata.items():
-                if value is not None:
-                    processed_metadata[key] = str(value)
-            processed_metadatas.append(processed_metadata)
-
-        # Add to collection
-        self.collection.add(
-            ids=ids,
-            embeddings=embeddings,
-            documents=texts,
-            metadatas=processed_metadatas,
-        )
-
+        self.chroma.add_documents(lc_docs)
         self.logger.info(f"Successfully added {len(documents)} documents")
 
     @timer
@@ -132,80 +97,72 @@ class VectorStore:
             metadata_filter: Optional metadata filter
 
         Returns:
-            List of search results with text, metadata, and similarity scores
+            List of search results with text, metadata, and distance
         """
         top_k = top_k or Config.TOP_K_RESULTS
-
         self.logger.info(f"Searching for: '{query}' (top_k={top_k})")
 
-        # Generate query embedding
-        query_embedding = self.generate_embeddings([query])[0]
-
-        # Search in collection
-        results = self.collection.query(
-            query_embeddings=[query_embedding], n_results=top_k, where=metadata_filter
+        # Use similarity_search_with_score which returns raw L2 distances
+        # (lower = more similar), matching the behaviour of the old chromadb client.
+        results = self.chroma.similarity_search_with_score(
+            query, k=top_k, filter=metadata_filter
         )
 
-        # Format results
-        formatted_results = []
-        if results["ids"] and len(results["ids"][0]) > 0:
-            for i in range(len(results["ids"][0])):
-                formatted_results.append(
-                    {
-                        "id": results["ids"][0][i],
-                        "text": results["documents"][0][i],
-                        "metadata": results["metadatas"][0][i],
-                        "distance": (
-                            results["distances"][0][i]
-                            if "distances" in results
-                            else None
-                        ),
-                    }
-                )
+        formatted = [
+            {"text": doc.page_content, "metadata": doc.metadata, "distance": score}
+            for doc, score in results
+        ]
 
-        self.logger.info(f"Found {len(formatted_results)} results")
-        return formatted_results
+        self.logger.info(f"Found {len(formatted)} results")
+        return formatted
 
-    def get_document_by_id(self, doc_id: str) -> Optional[Dict[str, Any]]:
+    def as_retriever(self, k: int = 20):
         """
-        Retrieve a document by its ID.
+        Return a LangChain BaseRetriever for use in chains and EnsembleRetriever.
 
         Args:
-            doc_id: Document ID
+            k: Number of documents to retrieve
+        """
+        return self.chroma.as_retriever(search_kwargs={"k": k})
+
+    def get_by_metadata(
+        self, metadata_filter: Dict[str, Any], top_k: int = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Fetch documents by metadata filter without a similarity search.
+
+        Uses Chroma's .get() API so no query embedding is needed — results
+        are deterministic and not ranked by relevance.
+
+        Args:
+            metadata_filter: ChromaDB where-clause dict, e.g. {"category": "finance"}
+            top_k: Maximum number of results (None = all matches)
 
         Returns:
-            Document data or None if not found
+            List of matching documents with text and metadata
         """
-        try:
-            result = self.collection.get(ids=[doc_id])
-            if result["ids"]:
-                return {
-                    "id": result["ids"][0],
-                    "text": result["documents"][0],
-                    "metadata": result["metadatas"][0],
-                }
-        except Exception as e:
-            self.logger.error(f"Error retrieving document {doc_id}: {str(e)}")
+        self.logger.info(f"Fetching by metadata: {metadata_filter}")
+        kwargs = {"where": metadata_filter}
+        if top_k:
+            kwargs["limit"] = top_k
 
-        return None
+        result = self.chroma._collection.get(**kwargs)
 
-    def delete_documents(self, doc_ids: List[str]) -> None:
-        """
-        Delete documents by their IDs.
-
-        Args:
-            doc_ids: List of document IDs to delete
-        """
-        self.logger.info(f"Deleting {len(doc_ids)} documents")
-        self.collection.delete(ids=doc_ids)
+        docs = [
+            {"text": text, "metadata": meta}
+            for text, meta in zip(result["documents"], result["metadatas"])
+        ]
+        self.logger.info(f"Found {len(docs)} documents")
+        return docs
 
     def clear_collection(self) -> None:
         """Clear all documents from the collection."""
         self.logger.warning("Clearing entire collection")
-        self.client.delete_collection(name=self.collection_name)
-        self.collection = self.client.create_collection(
-            name=self.collection_name,
-            metadata={"description": "Dashboard data for RAG system"},
+        self.chroma.delete_collection()
+        self.chroma = Chroma(
+            collection_name=self.collection_name,
+            embedding_function=self.embeddings,
+            persist_directory=self.persist_directory,
         )
 
     def get_collection_stats(self) -> Dict[str, Any]:
@@ -215,7 +172,7 @@ class VectorStore:
         Returns:
             Dictionary with collection statistics
         """
-        count = self.collection.count()
+        count = self.chroma._collection.count()
         return {
             "collection_name": self.collection_name,
             "document_count": count,
@@ -227,7 +184,6 @@ if __name__ == "__main__":
     # Example usage
     vector_store = VectorStore()
 
-    # Sample documents
     sample_docs = [
         {
             "text": "Q4 revenue increased by 25% compared to last year",
@@ -243,18 +199,14 @@ if __name__ == "__main__":
         },
     ]
 
-    # Add documents
     vector_store.add_documents(sample_docs)
 
-    # Search
     results = vector_store.search("How is our revenue performing?", top_k=2)
-
     print("\nSearch Results:")
     for result in results:
         print(f"\nText: {result['text']}")
         print(f"Metadata: {result['metadata']}")
-        print(f"Distance: {result['distance']}")
+        print(f"Distance: {result['distance']:.4f}")
 
-    # Get stats
     stats = vector_store.get_collection_stats()
     print(f"\nCollection Stats: {stats}")

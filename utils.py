@@ -11,6 +11,15 @@ from pathlib import Path
 import tiktoken
 
 
+@functools.lru_cache(maxsize=8)
+def _get_encoding(model: str):
+    """Return (and cache) the tiktoken encoding for a model."""
+    try:
+        return tiktoken.encoding_for_model(model)
+    except KeyError:
+        return tiktoken.get_encoding("cl100k_base")
+
+
 def setup_logging(log_level: str = "INFO", log_file: str = None) -> logging.Logger:
     """
     Setup logging configuration for the RAG system.
@@ -111,13 +120,7 @@ def count_tokens(text: str, model: str = "gpt-3.5-turbo") -> int:
     Returns:
         Number of tokens
     """
-    try:
-        encoding = tiktoken.encoding_for_model(model)
-    except KeyError:
-        # Fallback to cl100k_base encoding for unknown models
-        encoding = tiktoken.get_encoding("cl100k_base")
-
-    return len(encoding.encode(text))
+    return len(_get_encoding(model).encode(text))
 
 
 def truncate_to_token_limit(
@@ -134,18 +137,11 @@ def truncate_to_token_limit(
     Returns:
         Truncated text
     """
-    try:
-        encoding = tiktoken.encoding_for_model(model)
-    except KeyError:
-        encoding = tiktoken.get_encoding("cl100k_base")
-
+    encoding = _get_encoding(model)
     tokens = encoding.encode(text)
-
     if len(tokens) <= max_tokens:
         return text
-
-    truncated_tokens = tokens[:max_tokens]
-    return encoding.decode(truncated_tokens)
+    return encoding.decode(tokens[:max_tokens])
 
 
 def validate_file_exists(file_path: str) -> bool:
@@ -159,34 +155,6 @@ def validate_file_exists(file_path: str) -> bool:
         True if file exists, False otherwise
     """
     return Path(file_path).exists()
-
-
-def validate_data_format(data: Any, expected_type: type) -> bool:
-    """
-    Validate data format matches expected type.
-
-    Args:
-        data: Data to validate
-        expected_type: Expected data type
-
-    Returns:
-        True if data matches expected type, False otherwise
-    """
-    return isinstance(data, expected_type)
-
-
-def chunk_list(items: List[Any], chunk_size: int) -> List[List[Any]]:
-    """
-    Split a list into chunks of specified size.
-
-    Args:
-        items: List to chunk
-        chunk_size: Size of each chunk
-
-    Returns:
-        List of chunks
-    """
-    return [items[i : i + chunk_size] for i in range(0, len(items), chunk_size)]
 
 
 def format_context_for_llm(chunks: List[Dict[str, Any]]) -> str:

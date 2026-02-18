@@ -4,7 +4,13 @@
 chromadb>=0.4.22
 sentence-transformers>=2.3.1
 langchain>=0.1.0
-langchain-community>=0.0.20  # For BM25Retriever and EnsembleRetriever
+langchain-community>=0.0.20  # For BM25Retriever and other community integrations
+langchain-chroma>=1.1.0      # For Chroma vector store
+langchain-huggingface>=1.2.0 # For HuggingFaceEmbeddings
+langchain-ollama>=1.0.1      # For ChatOllama
+langchain-openai>=0.1.0      # For ChatOpenAI
+langchain-anthropic>=0.1.0   # For ChatAnthropic
+langchain-text-splitters>=0.1.0  # For RecursiveCharacterTextSplitter
 openai>=1.12.0
 anthropic>=0.18.0
 python-dotenv>=1.0.0

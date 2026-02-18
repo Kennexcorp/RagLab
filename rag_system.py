@@ -5,6 +5,7 @@ Coordinates all components to provide end-to-end question answering.
 
 import logging
 import argparse
+import os
 from typing import Dict, Any, Optional, List
 
 from config import Config
@@ -100,6 +101,7 @@ class RAGSystem:
             Response dictionary with answer and metadata
         """
         self.logger.info(f"Processing query: '{question}'")
+        self.performance_monitor.reset()
         self.performance_monitor.start_timer("query_processing")
 
         # Retrieve context
@@ -156,9 +158,19 @@ class RAGSystem:
         }
 
     def clear_data(self):
-        """Clear all data from the vector store."""
+        """Clear all data from the vector store and reset hybrid search index."""
         self.logger.warning("Clearing all data from vector store")
         self.vector_store.clear_collection()
+
+        # Reset the hybrid search BM25 state so stale index data doesn't persist
+        if self.retriever.use_hybrid and self.retriever.hybrid_retriever:
+            hr = self.retriever.hybrid_retriever
+            hr.is_fitted = False
+            hr.bm25_retriever = None
+            hr.ensemble_retriever = None
+            if os.path.exists(Config.BM25_INDEX_PATH):
+                os.remove(Config.BM25_INDEX_PATH)
+
         self.logger.info("Data cleared successfully")
 
 
