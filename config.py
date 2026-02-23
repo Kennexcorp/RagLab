@@ -8,8 +8,9 @@ from pathlib import Path
 from typing import Optional
 from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
+# Load environment variables from .env file using an absolute path so the
+# server works regardless of working directory (e.g. when launched by Claude Desktop).
+load_dotenv(Path(__file__).parent / ".env")
 
 
 class Config:

@@ -9,6 +9,7 @@ __pycache__/
 env/
 venv/
 .conda/
+.claude/
 
 # Testing
 .pytest_cache/
@@ -30,3 +31,6 @@ TODO.md
 keytable-data.json
 keytable-raw.json
 template.txt
+.mcp.json
+raw_json/
+data/
