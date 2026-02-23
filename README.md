@@ -19,7 +19,7 @@ A production-ready Retrieval Augmented Generation (RAG) system that enables natu
 
 ```bash
 # Clone or navigate to the project directory
-cd "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)"
+cd "Retrieval Augmented Generation (RAG)"
 
 # Install dependencies
 pip install -r requirements.txt
