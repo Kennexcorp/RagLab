@@ -116,14 +116,18 @@ class VectorStore:
         self.logger.info(f"Found {len(formatted)} results")
         return formatted
 
-    def as_retriever(self, k: int = 20):
+    def as_retriever(self, k: int = 20, search_type: str = "similarity"):
         """
         Return a LangChain BaseRetriever for use in chains and EnsembleRetriever.
 
         Args:
             k: Number of documents to retrieve
+            search_type: 'similarity' (default) or 'mmr' for diverse results
         """
-        return self.chroma.as_retriever(search_kwargs={"k": k})
+        return self.chroma.as_retriever(
+            search_type=search_type,
+            search_kwargs={"k": k},
+        )
 
     def get_by_metadata(
         self, metadata_filter: Dict[str, Any], top_k: int = None
@@ -178,6 +182,38 @@ class VectorStore:
             "document_count": count,
             "embedding_model": self.embedding_model_name,
         }
+
+    @staticmethod
+    def list_collections(persist_directory: str = None) -> List[str]:
+        """
+        Return all collection names stored in the ChromaDB at persist_directory.
+
+        Args:
+            persist_directory: Path to the ChromaDB directory (defaults to Config.PERSIST_DIRECTORY)
+
+        Returns:
+            Sorted list of collection name strings
+        """
+        import chromadb
+
+        path = persist_directory or Config.PERSIST_DIRECTORY
+        client = chromadb.PersistentClient(path=path)
+        return sorted(c.name for c in client.list_collections())
+
+    @staticmethod
+    def delete_collection(collection_name: str, persist_directory: str = None) -> None:
+        """
+        Permanently delete a named collection from ChromaDB.
+
+        Args:
+            collection_name: Name of the collection to delete
+            persist_directory: Path to ChromaDB directory (defaults to Config.PERSIST_DIRECTORY)
+        """
+        import chromadb
+
+        path = persist_directory or Config.PERSIST_DIRECTORY
+        client = chromadb.PersistentClient(path=path)
+        client.delete_collection(collection_name)
 
 
 if __name__ == "__main__":

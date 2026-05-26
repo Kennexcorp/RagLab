@@ -4,30 +4,20 @@ Uses LangChain's ChatPromptTemplate and provider-specific LLM wrappers
 to replace manual prompt construction and per-provider API calls.
 """
 
-import logging
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, List, Optional
 
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 
 from config import Config
 from utils import setup_logging, timer
 
-
-_SYSTEM_MSG = (
-    "You are a helpful assistant that answers questions about organization dashboard data.\n"
-    "Use the following context to answer the question. "
-    "If the context doesn't contain enough information to answer the question, say so."
-)
 
 _HUMAN_MSG = (
     "Context:\n{context}\n\n"
     "Question: {question}\n\n"
     "Answer: Provide a clear, concise answer based on the context above. "
     "If you reference specific data, mention the source."
-)
-
-_PROMPT = ChatPromptTemplate.from_messages(
-    [("system", _SYSTEM_MSG), ("human", _HUMAN_MSG)]
 )
 
 
@@ -39,6 +29,8 @@ class Generator:
         provider: str = None,
         model: str = None,
         api_key: str = None,
+        temperature: float = None,
+        system_prompt: str = None,
         log_level: str = "INFO",
     ):
         """
@@ -48,18 +40,25 @@ class Generator:
             provider: LLM provider ('openai', 'anthropic', or 'ollama')
             model: Model name
             api_key: API key for the provider
+            temperature: LLM temperature (0.0 = precise, 1.0 = creative)
+            system_prompt: System message override
             log_level: Logging level
         """
         self.logger = setup_logging(log_level)
 
         self.provider = provider or Config.LLM_PROVIDER
         self.model = model or Config.LLM_MODEL
-        self.temperature = Config.LLM_TEMPERATURE
+        self.temperature = temperature if temperature is not None else Config.LLM_TEMPERATURE
         self.max_tokens = Config.LLM_MAX_TOKENS
         self.api_key = api_key or Config.get_llm_api_key()
 
-        llm = self._build_llm()
-        self.chain = _PROMPT | llm
+        self.system_prompt = system_prompt or Config.SYSTEM_PROMPT
+        self._prompt = ChatPromptTemplate.from_messages([
+            ("system", self.system_prompt),
+            ("human", _HUMAN_MSG),
+        ])
+        self._llm = self._build_llm()
+        self.chain = self._prompt | self._llm
 
         self.logger.info(
             f"Generator initialized: provider={self.provider}, model={self.model}"
@@ -97,20 +96,40 @@ class Generator:
             raise ValueError(f"Unsupported provider: {self.provider}")
 
     @timer
-    def generate(self, query: str, context: str) -> Dict[str, Any]:
+    def generate(
+        self,
+        query: str,
+        context: str,
+        conversation_history: List[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         """
         Generate answer for a query using retrieved context.
 
         Args:
-            query: User query
-            context: Retrieved context (formatted text)
+            query:                User query
+            context:              Retrieved context (formatted text)
+            conversation_history: Prior turns as [{"role": "user"|"assistant", "content": str}, ...]
 
         Returns:
             Response dictionary with answer and metadata
         """
         self.logger.info(f"Generating answer for query: '{query}'")
 
-        response = self.chain.invoke({"context": context, "question": query})
+        if conversation_history:
+            history_msgs = []
+            for turn in conversation_history:
+                if turn.get("role") == "user":
+                    history_msgs.append(HumanMessage(content=turn["content"]))
+                elif turn.get("role") == "assistant":
+                    history_msgs.append(AIMessage(content=turn["content"]))
+            messages = (
+                [SystemMessage(content=self.system_prompt)]
+                + history_msgs
+                + [HumanMessage(content=_HUMAN_MSG.format(context=context, question=query))]
+            )
+            response = self._llm.invoke(messages)
+        else:
+            response = self.chain.invoke({"context": context, "question": query})
 
         usage = getattr(response, "usage_metadata", None) or {}
         finish_reason = (
@@ -128,7 +147,10 @@ class Generator:
         }
 
     def generate_with_sources(
-        self, query: str, context_data: Dict[str, Any]
+        self,
+        query: str,
+        context_data: Dict[str, Any],
+        conversation_history: List[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """
         Generate answer and include source citations.
@@ -143,7 +165,7 @@ class Generator:
         context = context_data.get("context", "")
         sources = context_data.get("sources", [])
 
-        response = self.generate(query, context)
+        response = self.generate(query, context, conversation_history=conversation_history)
         response["sources"] = sources
         response["num_sources"] = len(sources)
 

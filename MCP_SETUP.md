@@ -1,248 +1,213 @@
 # MCP Server Setup for RAG System
 
-This guide explains how to expose your RAG system as MCP (Model Context Protocol) tools.
-
-## What is MCP?
-
-MCP (Model Context Protocol) is a standardized protocol that allows applications to expose tools and resources that can be used by AI assistants and other applications. By exposing your RAG system as MCP tools, you can integrate it with various MCP-compatible clients.
+This guide explains how to expose your RAG system as MCP (Model Context Protocol) tools for use with Claude Desktop, Claude Code, and other MCP-compatible clients.
 
 ## Available MCP Tools
 
-The RAG MCP server exposes the following tools:
-
-### 1. `ingest_data`
-Ingest dashboard data into the RAG system from a JSON or CSV file.
+### `ingest_data`
+Load a JSON or CSV file into the RAG system. The file is chunked and stored in the vector database.
 
 **Parameters:**
 - `file_path` (required): Path to the data file
-- `source_type` (optional): "json" or "csv" (default: "json")
+- `source_type` (optional): `"json"` or `"csv"` (default: `"json"`)
+- `collection_name` (optional): Target collection (defaults to system default)
+
+**Example:**
+```json
+{ "file_path": "docs/report.json", "source_type": "json" }
+```
+
+---
+
+### `ingest_document`
+Ingest a plain-text document with structured metadata.
+
+**Parameters:**
+- `text` (required): Full plain-text content
+- `title` (required): Human-readable document title
+- `category` (required): Document category (e.g. `"finance"`, `"legal"`)
+- `source` (required): Source label or original filename
+- `description` (optional): Freeform description
+- `tags` (optional): Comma-separated tags, e.g. `"Q4,2026,revenue"`
+- `author` (optional): Author name
+- `collection_name` (optional): Target collection
 
 **Example:**
 ```json
 {
-  "file_path": "sample_data.json",
-  "source_type": "json"
+  "text": "Q4 revenue reached $10M, up 25% year-over-year...",
+  "title": "Q4 2025 Finance Report",
+  "category": "finance",
+  "source": "q4-report.pdf",
+  "tags": "Q4,2025,revenue"
 }
 ```
 
-### 2. `query_dashboard`
-Query the dashboard data using natural language.
+---
+
+### `query`
+Query the knowledge base using natural language. Returns an AI-generated answer with source citations.
 
 **Parameters:**
 - `question` (required): Natural language question
 - `top_k` (optional): Number of context chunks to retrieve (default: 5)
+- `collection_name` (optional): Collection to search
 
 **Example:**
 ```json
-{
-  "question": "What is our Q4 revenue?",
-  "top_k": 3
-}
+{ "question": "What was Q4 revenue?", "top_k": 3 }
 ```
 
-### 3. `search_documents`
-Search for relevant documents without generating an answer.
+---
+
+### `search_documents`
+Search for relevant documents without generating an answer. Returns raw results with similarity scores.
 
 **Parameters:**
 - `query` (required): Search query
 - `top_k` (optional): Number of results (default: 5)
+- `collection_name` (optional): Collection to search
 
 **Example:**
 ```json
-{
-  "query": "revenue metrics",
-  "top_k": 5
-}
+{ "query": "revenue metrics", "top_k": 5 }
 ```
 
-### 4. `ingest_keytable`
-Ingest a keytable JSON API response into the RAG system. Each row in the series tree becomes one document. Accepts both the raw full API payload and the slim pre-filtered format — the loader identifies the relevant columns automatically.
+---
+
+### `list_collections`
+List all collections in the vector store.
+
+**Parameters:** None
+
+---
+
+### `get_collection_stats`
+Get statistics for a collection: document count, embedding model.
 
 **Parameters:**
-- `file_path` (required): Path to the keytable JSON file
+- `collection_name` (optional): Collection name (defaults to system default)
 
-**Example:**
-```json
-{
-  "file_path": "/path/to/keytable-raw.json"
-}
-```
+---
 
-### 5. `get_system_stats`
-Get statistics about the RAG system.
+### `delete_collection`
+Permanently delete a collection and all its documents.
+
+**Parameters:**
+- `collection_name` (required): Name of the collection to delete
+
+---
+
+### `clear_collection`
+Remove all documents from a collection without deleting the collection itself.
+
+**Parameters:**
+- `collection_name` (optional): Collection to clear (defaults to system default)
+
+---
+
+### `get_system_stats`
+Get overall system statistics: configuration, default collection info, document count.
 
 **Parameters:** None
 
-### 6. `clear_data`
-Clear all data from the vector store.
+---
 
-**Parameters:** None
+## Setup
 
-## Setup Instructions
-
-### 1. Install MCP Dependency
+### 1. Install Dependencies
 
 ```bash
-pip install mcp
-```
-
-Or install all dependencies:
-```bash
+source .conda/bin/activate
 pip install -r requirements.txt
 ```
 
 ### 2. Configure Environment
 
-Make sure your `.env` file is set up with your API keys:
-
 ```bash
 cp .env.example .env
-# Edit .env and add your API keys
+# Edit .env with your API keys and settings
 ```
 
-### 3. Test the MCP Server
+Minimum `.env` for local Ollama use:
+```env
+LLM_PROVIDER=ollama
+LLM_MODEL=llama3.2
+```
 
-Run the server directly to test:
+### 3. Test the Server
 
 ```bash
 python mcp_server.py
 ```
 
-The server will start and listen for MCP protocol messages on stdin/stdout.
+The server starts and listens on stdin/stdout (MCP stdio transport).
 
-### 4. Register with MCP Client
+---
 
-To use the RAG server with an MCP-compatible client (like Claude Desktop), add the configuration to your MCP settings:
+## Register with MCP Clients
 
-**For Claude Desktop:**
+### Claude Desktop
 
 Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
-    "rag-dashboard": {
-      "command": "python",
+    "rag": {
+      "command": "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/.conda/bin/python",
       "args": [
         "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/mcp_server.py"
-      ],
-      "env": {
-        "PYTHONPATH": "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)"
-      }
+      ]
     }
   }
 }
 ```
 
-**Note:** Update the path to match your actual installation directory.
+### Claude Code (project-scoped)
 
-**For Claude Code (CLI):**
+Create `.mcp.json` in the project root:
 
-Add the server at project scope using the CLI:
+```json
+{
+  "mcpServers": {
+    "rag": {
+      "command": "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/.conda/bin/python",
+      "args": [
+        "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/mcp_server.py"
+      ]
+    }
+  }
+}
+```
+
+Or add via the CLI:
 
 ```bash
-claude mcp add rag-dashboard \
+claude mcp add rag \
   /Users/sly/Documents/MachineLearning/Retrieval\ Augmented\ Generation\ \(RAG\)/.conda/bin/python \
   /Users/sly/Documents/MachineLearning/Retrieval\ Augmented\ Generation\ \(RAG\)/mcp_server.py
 ```
 
-Or add it manually as a project-scoped server by creating `.mcp.json` in the project root:
-
-```json
-{
-  "mcpServers": {
-    "rag-dashboard": {
-      "command": "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/.conda/bin/python",
-      "args": [
-        "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/mcp_server.py"
-      ]
-    }
-  }
-}
-```
-
-To add it globally (available across all projects), add the same `mcpServers` block to `~/.claude/settings.json`.
-
-Verify the server is connected:
+Verify the server is registered:
 ```bash
 claude mcp list
 ```
 
-### 5. Activate Conda Environment (if using)
+### Global (all projects)
 
-The simplest approach is to point directly to the conda env's Python binary — no activation step needed:
+Add the same `mcpServers` block to `~/.claude/settings.json`.
 
-```json
-{
-  "mcpServers": {
-    "rag-dashboard": {
-      "command": "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/.conda/bin/python",
-      "args": [
-        "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/mcp_server.py"
-      ]
-    }
-  }
-}
-```
-
-This works for both Claude Desktop and Claude Code (`.mcp.json`). The project-local `.conda/bin/python` already has all dependencies installed, so no `conda run` wrapper is needed.
-
-## Usage Examples
-
-Once configured, you can use the tools from any MCP-compatible client:
-
-### Example 1: Ingest Data
-```
-Use the ingest_data tool to load sample_data.json
-```
-
-### Example 2: Query Dashboard
-```
-Use the query_dashboard tool to ask: "What are our top performing metrics?"
-```
-
-### Example 3: Search Documents
-```
-Use the search_documents tool to find documents about "revenue"
-```
-
-### Example 4: Get Stats
-```
-Use the get_system_stats tool to see system information
-```
-
-## Troubleshooting
-
-### Server Not Starting
-
-**Issue:** Server fails to start
-**Solution:** Check that all dependencies are installed and your `.env` file is configured
-
-### API Key Errors
-
-**Issue:** "API key required" errors
-**Solution:** Ensure your `.env` file contains valid API keys for your chosen LLM provider
-
-### Path Issues
-
-**Issue:** "Module not found" errors
-**Solution:** Verify the PYTHONPATH in your MCP config points to the correct directory
-
-### No Data Found
-
-**Issue:** Queries return "No relevant context found"
-**Solution:** Make sure you've ingested data first using the `ingest_data` tool
+---
 
 ## Advanced Configuration
 
-### Custom Models
-
-You can override any `.env` setting per-server via `env` in the MCP config:
+Override `.env` settings per-server via the `env` key in your MCP config. Useful for switching providers or targeting a specific collection:
 
 ```json
 {
   "mcpServers": {
-    "rag-dashboard": {
+    "rag": {
       "command": "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/.conda/bin/python",
       "args": [
         "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/mcp_server.py"
@@ -250,55 +215,52 @@ You can override any `.env` setting per-server via `env` in the MCP config:
       "env": {
         "LLM_PROVIDER": "anthropic",
         "LLM_MODEL": "claude-sonnet-4-6",
-        "EMBEDDING_MODEL": "all-MiniLM-L6-v2",
-        "TOP_K_RESULTS": "5"
+        "COLLECTION_NAME": "legal-docs"
       }
     }
   }
 }
 ```
 
-### Multiple Instances
-
-Run multiple RAG servers pointing at different ChromaDB collections:
+### Multiple Instances (multiple collections)
 
 ```json
 {
   "mcpServers": {
-    "rag-gold-prod": {
+    "rag-legal": {
       "command": "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/.conda/bin/python",
-      "args": [
-        "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/mcp_server.py"
-      ],
-      "env": {
-        "COLLECTION_NAME": "gold_production"
-      }
+      "args": ["/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/mcp_server.py"],
+      "env": { "COLLECTION_NAME": "legal" }
     },
-    "rag-gold-dev": {
+    "rag-finance": {
       "command": "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/.conda/bin/python",
-      "args": [
-        "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/mcp_server.py"
-      ],
-      "env": {
-        "COLLECTION_NAME": "gold_development"
-      }
+      "args": ["/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/mcp_server.py"],
+      "env": { "COLLECTION_NAME": "finance" }
     }
   }
 }
 ```
 
-## Security Considerations
+---
 
-- **API Keys:** Never commit `.env` files with real API keys
-- **Data Access:** The MCP server has full access to your RAG system
-- **Clear Data:** The `clear_data` tool permanently deletes all ingested data
-- **File Paths:** Validate file paths in production to prevent unauthorized access
+## Troubleshooting
 
-## Next Steps
+**Server fails to start** — Check all dependencies are installed and `.env` is configured.
 
-1. Ingest your actual dashboard data
-2. Test queries through the MCP interface
-3. Integrate with your preferred MCP client
-4. Monitor performance and adjust configuration as needed
+**`API key required` errors** — Ensure `.env` has a valid key for your chosen `LLM_PROVIDER`, or switch to `ollama` for local inference.
 
-For more information about the RAG system itself, see the main [README.md](README.md).
+**`Module not found` errors** — Verify the `command` path points to `.conda/bin/python`, not the system Python.
+
+**`No relevant context found`** — Ingest documents first using `ingest_data` or `ingest_document`.
+
+---
+
+## Security
+
+- Never commit `.env` files containing real API keys
+- `delete_collection` and `clear_collection` are destructive — use with care
+- Validate file paths in production to prevent unauthorized file access
+
+---
+
+For more on the RAG system, see [README.md](README.md).

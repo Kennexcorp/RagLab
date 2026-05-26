@@ -22,10 +22,10 @@ class Config:
     VECTOR_DB_DIR = PROJECT_ROOT / "vector_db"
 
     # LLM Configuration
-    LLM_PROVIDER = os.getenv("LLM_PROVIDER", "openai")  # openai, anthropic, ollama
+    LLM_PROVIDER = os.getenv("LLM_PROVIDER", "ollama")  # ollama (default), openai, anthropic
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
     ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-    LLM_MODEL = os.getenv("LLM_MODEL", "gpt-3.5-turbo")
+    LLM_MODEL = os.getenv("LLM_MODEL", "llama3.2")
     LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.7"))
     LLM_MAX_TOKENS = int(os.getenv("LLM_MAX_TOKENS", "1000"))
 
@@ -33,8 +33,16 @@ class Config:
     EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
 
     # Vector Store Configuration
-    COLLECTION_NAME = os.getenv("COLLECTION_NAME", "dashboard_data")
+    COLLECTION_NAME = os.getenv("COLLECTION_NAME", "documents")
     PERSIST_DIRECTORY = str(VECTOR_DB_DIR)
+
+    # System prompt for the LLM — override via SYSTEM_PROMPT env var
+    SYSTEM_PROMPT = os.getenv(
+        "SYSTEM_PROMPT",
+        "You are a helpful assistant. Use the provided context to answer questions "
+        "accurately and concisely. If the context doesn't contain enough information "
+        "to answer the question, say so clearly.",
+    )
 
     # Chunking Configuration
     CHUNK_SIZE = int(os.getenv("CHUNK_SIZE", "512"))
@@ -43,13 +51,18 @@ class Config:
 
     # Retrieval Configuration
     TOP_K_RESULTS = int(os.getenv("TOP_K_RESULTS", "5"))
-    SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.7"))
+    SIMILARITY_THRESHOLD = float(os.getenv("SIMILARITY_THRESHOLD", "0.5"))
 
     # Hybrid Search Configuration
     USE_HYBRID_SEARCH = os.getenv("USE_HYBRID_SEARCH", "true").lower() == "true"
     SEMANTIC_WEIGHT = float(os.getenv("SEMANTIC_WEIGHT", 0.7))  # 70% semantic
     KEYWORD_WEIGHT = float(os.getenv("KEYWORD_WEIGHT", 0.3))  # 30% keyword
     BM25_INDEX_PATH = VECTOR_DB_DIR / "bm25_index.pkl"
+
+    # Retrieval Strategy Configuration
+    RETRIEVAL_STRATEGY = os.getenv("RETRIEVAL_STRATEGY", "semantic")
+    RERANKER_MODEL = os.getenv("RERANKER_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
+    PARENT_CHUNK_SIZE = int(os.getenv("PARENT_CHUNK_SIZE", "1024"))
 
     # System Configuration
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")

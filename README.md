@@ -1,364 +1,284 @@
-# RAG System for Organization Dashboard
+# RAG System
 
-A production-ready Retrieval Augmented Generation (RAG) system that enables natural language querying of organization dashboard data using semantic search and LLM-powered answer generation.
+A production-ready Retrieval Augmented Generation (RAG) system for natural language querying of documents and structured data. Built with LangChain, ChromaDB, and HuggingFace embeddings. Exposes functionality via a Streamlit chat UI, CLI, and MCP server.
 
 ## Features
 
-- 📊 **Multi-source Data Ingestion**: Load data from JSON, CSV, or API endpoints
-- 🔍 **Hybrid Search**: Combines semantic vector search (70%) + BM25 keyword search (30%) for optimal retrieval
-- 🤖 **AI-Powered Answers**: Generate contextual answers with source citations
-- 🎯 **Multiple LLM Support**: OpenAI, Anthropic Claude, or local Ollama models
-- ⚡ **High Performance**: Optimized retrieval with ChromaDB vector store
-- 📝 **Source Citations**: Answers include references to source data
-- 🛠️ **CLI & Notebook**: Use via command line or interactive Jupyter notebook
-- 🔌 **MCP Integration**: Expose as MCP tools for integration with AI assistants
+- **Streamlit Chat Interface**: Persistent multi-turn conversation with per-collection history
+- **Multi-Collection Support**: Organize documents into named collections; switch collections in the sidebar
+- **8 Retrieval Strategies**: Semantic, Hybrid, MMR, Multi-Query, Reranking, HyDE, Self-Query, Parent-Child
+- **10 Chunking Strategies**: Semantic, Fixed, Markdown, Markdown-Headers, Token, Python, LaTeX, SpaCy, NLTK, Semantic-Embedding
+- **Multiple LLM Providers**: Ollama (default/local), OpenAI, Anthropic Claude
+- **Document Ingestion**: PDF, DOCX, TXT, JSON, CSV via LangChain loaders
+- **Source Citations**: Answers include references to retrieved source chunks
+- **MCP Integration**: Expose as MCP tools for integration with Claude Desktop and Claude Code
 
 ## Quick Start
 
 ### 1. Installation
 
 ```bash
-# Clone or navigate to the project directory
 cd "Retrieval Augmented Generation (RAG)"
 
-# Install dependencies
+# Install dependencies (use the project conda env)
+source .conda/bin/activate
 pip install -r requirements.txt
 ```
 
 ### 2. Configuration
 
-Copy the environment template and add your API keys:
-
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` and add your API key:
+Edit `.env` — minimum required for local use with Ollama:
 ```env
-LLM_PROVIDER=openai
-OPENAI_API_KEY=your_api_key_here
-LLM_MODEL=gpt-3.5-turbo
+LLM_PROVIDER=ollama
+LLM_MODEL=llama3.2
 ```
 
-### 3. Ingest Data
-
-```bash
-# Ingest sample dashboard data
-python rag_system.py --ingest sample_data.json --source-type json
+For cloud LLMs:
+```env
+LLM_PROVIDER=anthropic
+ANTHROPIC_API_KEY=your_key_here
+LLM_MODEL=claude-sonnet-4-6
 ```
 
-### 4. Query the System
+### 3. Run the GUI
 
 ```bash
-# Ask a question
-python rag_system.py --query "How is our revenue performing?"
+streamlit run gui_app.py
+```
 
-# Interactive mode
+The app opens at `http://localhost:8501`. Use the **Upload Documents** tab to ingest files, then switch to **Chat** to ask questions.
+
+### 4. CLI Usage
+
+```bash
+# Ingest a JSON or CSV file
+python rag_system.py --ingest data.json --source-type json
+
+# Ask a one-shot question
+python rag_system.py --query "What does this document say about revenue?"
+
+# Interactive REPL
 python rag_system.py --interactive
-```
 
-## Usage Examples
-
-### Command Line Interface
-
-```bash
-# Ingest generic JSON/CSV data
-python rag_system.py --ingest sample_data.json
-
-# Ingest a keytable API response (gold market data)
-python rag_system.py --ingest-keytable keytable-raw.json
-
-# Flags can be combined — ingest then query in one command
-python rag_system.py --ingest-keytable keytable-raw.json --query "What was mine production in Q4 2025?"
-
-# Query with custom top-k
-python rag_system.py --query "What are our user engagement metrics?" --top-k 3
-
-# View system statistics
+# View system stats
 python rag_system.py --stats
 
-# Clear all data
+# Clear a collection
 python rag_system.py --clear
 ```
 
-### Interactive Mode
+## GUI Overview
 
-```bash
-python rag_system.py --interactive
-```
+### Sidebar Controls
 
-Available commands inside the interactive session:
-
-| Command | Description |
+| Section | Controls |
 |---|---|
-| `exit` | Quit the session |
-| `stats` | Show document count |
-| `ingest-keytable <path>` | Load a keytable JSON file |
-| Any other text | Ask a question |
+| **Collections** | Switch active collection; create, clear, or delete collections |
+| **LLM Settings** | Provider (Ollama/OpenAI/Anthropic), model name, API key, temperature |
+| **System Prompt** | Override the default assistant prompt |
+| **Chunking Settings** | Strategy selector (10 options), chunk size, chunk overlap |
+| **Retrieval Settings** | Strategy selector (8 options), Top-K, semantic weight (hybrid only) |
+| **Stats** | Document count and embedding model for the active collection |
 
-### Python API
+### Upload Documents Tab
 
-```python
-from rag_system import RAGSystem
+Upload PDF, DOCX, TXT, JSON, or CSV files. Supports multi-file upload. Form resets after each ingestion.
 
-# Initialize
-rag = RAGSystem()
+### Chat Tab
 
-# Ingest data
-rag.ingest_data("sample_data.json", source_type="json")
+- Persistent conversation per collection — follow-up questions carry context from prior turns
+- Query rewriting: vague follow-ups ("explain that") are rewritten into standalone search queries before retrieval
+- Each assistant response includes a collapsible **Sources** expander with similarity scores and text previews
+- **Clear chat** button resets the current conversation without deleting documents
 
-# Query
-response = rag.query("How is our revenue performing?")
-print(response['answer_with_citations'])
-```
+## Retrieval Strategies
 
-### Jupyter Notebook
+| Strategy | Description |
+|---|---|
+| `semantic` | Dense vector similarity search (default) |
+| `hybrid` | Semantic (BM25-weighted ensemble); adjustable semantic weight |
+| `mmr` | Maximal Marginal Relevance — diverse, non-redundant results |
+| `multi-query` | LLM generates multiple query phrasings; results merged |
+| `reranking` | Initial semantic recall + cross-encoder reranking |
+| `hyde` | Hypothetical Document Embeddings — LLM drafts an answer, searches by that |
+| `self-query` | LLM extracts metadata filters from the question |
+| `parent-child` | Retrieves small child chunks; returns larger parent chunks for context |
 
-Open `index.ipynb` for an interactive walkthrough with examples and visualizations.
+## Chunking Strategies
+
+| Strategy | Description |
+|---|---|
+| `semantic` | Splits on sentences/paragraphs by character count (default) |
+| `fixed` | Fixed character count with overlap |
+| `markdown` | Splits on markdown headers and sections |
+| `markdown-headers` | Splits strictly on header hierarchy |
+| `token` | Splits by token count (tiktoken) |
+| `python` | AST-aware splitting for Python source files |
+| `latex` | LaTeX-aware splitting (sections, equations) |
+| `spacy` | Sentence boundary detection via spaCy NLP |
+| `nltk` | Sentence tokenization via NLTK |
+| `semantic-embedding` | Groups semantically similar sentences using embeddings |
 
 ## Architecture
 
 ```
-┌─────────────┐
-│   Query     │
-└──────┬──────┘
-       │
-       ▼
-┌─────────────────────────────────────┐
-│         RAG System                  │
-│  ┌──────────────────────────────┐  │
-│  │  1. Retriever                │  │
-│  │     - Semantic Search        │  │
-│  │     - Context Building       │  │
-│  └──────────┬───────────────────┘  │
-│             │                       │
-│  ┌──────────▼───────────────────┐  │
-│  │  2. Generator                │  │
-│  │     - Prompt Engineering     │  │
-│  │     - LLM Integration        │  │
-│  └──────────┬───────────────────┘  │
-└─────────────┼───────────────────────┘
-              │
-              ▼
-       ┌──────────────┐
-       │   Answer     │
-       │ + Citations  │
-       └──────────────┘
+┌─────────────────────────────────────────────────────┐
+│                   Streamlit GUI                      │
+│   Upload Tab              Chat Tab                   │
+│   (ingest docs)    (multi-turn conversation)         │
+└───────────────────────────┬─────────────────────────┘
+                            │
+                   ┌────────▼────────┐
+                   │   RAGSystem      │
+                   │  orchestrator   │
+                   └────┬───────┬───┘
+                        │       │
+           ┌────────────▼─┐  ┌──▼────────────┐
+           │  Retriever    │  │  Generator     │
+           │  (8 strategies│  │  (LangChain    │
+           │  + rewrite)   │  │   LLM chain)   │
+           └──────┬────────┘  └───────────────┘
+                  │
+        ┌─────────▼──────────┐
+        │    Vector Store     │
+        │  (ChromaDB +        │
+        │   HuggingFace       │
+        │   embeddings)       │
+        └─────────────────────┘
 ```
 
 ## Components
 
-- **`config.py`**: Centralized configuration management
-- **`data_loader.py`**: Load and process data from various sources
-- **`chunking.py`**: Split documents into semantic chunks
-- **`vector_store.py`**: Vector database operations with ChromaDB
-- **`retriever.py`**: Semantic search and context retrieval
-- **`generator.py`**: LLM integration for answer generation
-- **`rag_system.py`**: Main orchestrator and CLI
-- **`keytable_loader.py`**: Load and convert keytable JSON API responses into RAG documents
-- **`mcp_server.py`**: MCP server exposing RAG functionality as tools
-- **`utils.py`**: Logging, monitoring, and helper functions
+| File | Purpose |
+|---|---|
+| `rag_system.py` | Main orchestrator + CLI entry point |
+| `config.py` | All configuration (reads from `.env`) |
+| `gui_app.py` | Streamlit UI (chat interface + upload) |
+| `data_loader.py` | JSON/CSV ingestion |
+| `document_parser.py` | PDF, DOCX, TXT parsing via LangChain loaders |
+| `chunking.py` | 10 text splitting strategies |
+| `vector_store.py` | ChromaDB wrapper |
+| `retriever.py` | 8 retrieval strategies |
+| `generator.py` | LLM answer generation with multi-turn history |
+| `hybrid_search.py` | BM25 + EnsembleRetriever logic |
+| `mcp_server.py` | MCP server exposing RAG as tools |
+| `utils.py` | Logging, timers, retry decorators |
 
 ## Configuration
 
 All configuration is managed through environment variables in `.env`:
 
 ```bash
-# LLM Configuration
-LLM_PROVIDER=openai          # Options: openai, anthropic, ollama
-LLM_MODEL=gpt-3.5-turbo      # Model name
-OPENAI_API_KEY=your_key_here
+# LLM
+LLM_PROVIDER=ollama            # openai | anthropic | ollama
+LLM_MODEL=llama3.2
+LLM_TEMPERATURE=0.7
+OPENAI_API_KEY=
+ANTHROPIC_API_KEY=
 
-# Embedding Configuration
-EMBEDDING_MODEL=all-MiniLM-L6-v2  # Sentence-transformers model
+# Embeddings
+EMBEDDING_MODEL=all-MiniLM-L6-v2
 
 # Vector Store
-COLLECTION_NAME=dashboard_data
+COLLECTION_NAME=documents
 PERSIST_DIRECTORY=./chroma_db
 
 # Chunking
 CHUNK_SIZE=512
 CHUNK_OVERLAP=50
-CHUNKING_STRATEGY=semantic
-
-# Hybrid Search (Default)
-USE_HYBRID_SEARCH=true       # Enable hybrid search
-SEMANTIC_WEIGHT=0.7          # 70% weight for semantic search
-KEYWORD_WEIGHT=0.3           # 30% weight for keyword (BM25) search
+CHUNKING_STRATEGY=semantic     # see Chunking Strategies table
 
 # Retrieval
+RETRIEVAL_STRATEGY=semantic    # see Retrieval Strategies table
 TOP_K_RESULTS=5
 SIMILARITY_THRESHOLD=0.7
+SEMANTIC_WEIGHT=0.7            # hybrid only
+
+# Advanced retrieval
+RERANKER_MODEL=cross-encoder/ms-marco-MiniLM-L-6-v2
+PARENT_CHUNK_SIZE=1024
 ```
 
-### Hybrid Search Explained
-
-The system uses **hybrid search** by default, combining:
-
-1. **Semantic Search (70%)**: Vector embeddings capture meaning and context
-2. **Keyword Search (30%)**: BM25 algorithm for exact term matching
-
-This provides the best of both worlds:
-- Semantic understanding for conceptual queries
-- Keyword precision for specific terms, dates, and IDs
-
-You can adjust the weights or disable hybrid search:
-```bash
-# Use semantic search only
-USE_HYBRID_SEARCH=false
-
-# Adjust weights (must sum to 1.0)
-SEMANTIC_WEIGHT=0.8
-KEYWORD_WEIGHT=0.2
-```
-
-## Configuration Options
-
-Key settings in `.env`:
+### Key Configuration Variables
 
 | Variable | Description | Default |
-|----------|-------------|---------|
-| `LLM_PROVIDER` | LLM provider (openai/anthropic/ollama) | openai |
-| `LLM_MODEL` | Model name | gpt-3.5-turbo |
-| `EMBEDDING_MODEL` | Sentence transformer model | all-MiniLM-L6-v2 |
-| `CHUNK_SIZE` | Chunk size in tokens | 512 |
-| `TOP_K_RESULTS` | Number of results to retrieve | 5 |
-| `CHUNKING_STRATEGY` | Chunking method (semantic/fixed) | semantic |
+|---|---|---|
+| `LLM_PROVIDER` | LLM provider | `ollama` |
+| `LLM_MODEL` | Model name | `llama3.2` |
+| `LLM_TEMPERATURE` | Generation temperature (0–1) | `0.7` |
+| `EMBEDDING_MODEL` | Sentence transformer model | `all-MiniLM-L6-v2` |
+| `COLLECTION_NAME` | Default collection | `documents` |
+| `CHUNK_SIZE` | Chunk size in characters | `512` |
+| `CHUNKING_STRATEGY` | Chunking method | `semantic` |
+| `RETRIEVAL_STRATEGY` | Retrieval method | `semantic` |
+| `TOP_K_RESULTS` | Chunks retrieved per query | `5` |
+| `SIMILARITY_THRESHOLD` | Minimum similarity score | `0.7` |
+| `SEMANTIC_WEIGHT` | Hybrid search vector weight | `0.7` |
+| `RERANKER_MODEL` | Cross-encoder for reranking | `cross-encoder/ms-marco-MiniLM-L-6-v2` |
+| `PARENT_CHUNK_SIZE` | Parent chunk size (parent-child) | `1024` |
 
-## Keytable Data
+## Python API
 
-The system natively ingests keytable JSON API responses (gold market supply/demand data). Each row in the series tree becomes one RAG document combining a static definition with a generated narrative for the reporting period.
+```python
+from rag_system import RAGSystem
 
-```bash
-# Load a single period
-python rag_system.py --ingest-keytable keytable-raw.json
+rag = RAGSystem()
 
-# Load multiple periods (accumulates in the same collection)
-python rag_system.py --ingest-keytable data/q3-2025.json
-python rag_system.py --ingest-keytable data/q4-2025.json
+# Ingest a file
+rag.ingest_data("docs/report.json", source_type="json")
 
-# Then query across periods
-python rag_system.py --query "How did mine production trend from Q3 to Q4 2025?"
+# One-shot query
+response = rag.query("What does the report say about Q4?")
+print(response["answer_with_citations"])
+
+# Multi-turn query
+history = [
+    {"role": "user", "content": "What is the total revenue?"},
+    {"role": "assistant", "content": "Total revenue was $10M."},
+]
+response = rag.query(
+    "How does that compare to Q3?",
+    conversation_history=history,
+    retrieval_strategy="hybrid",
+    top_k=5,
+)
 ```
 
-Both the raw full API payload (`keytable-raw.json`) and the slim pre-filtered format (`keytable-data.json`) are accepted — the loader identifies the relevant columns automatically from the headers.
+## MCP Integration
 
-Row definitions (units, formulas, descriptions) are stored in `data/keytable-definitions.json`.
+Expose the RAG system as MCP tools for Claude Desktop and Claude Code.
 
-## Sample Data
+See [MCP_SETUP.md](MCP_SETUP.md) for full setup instructions.
 
-The included `sample_data.json` contains 10 dashboard records covering:
-- Finance & Revenue
-- User Analytics
-- Customer Satisfaction
-- Sales Pipeline
-- Product Adoption
-- Marketing Performance
-- Infrastructure Metrics
-- Employee Engagement
-- Support Tickets
-- Competitive Analysis
+```bash
+python mcp_server.py
+```
 
-## Performance
-
-Typical query performance:
-- **Retrieval**: < 500ms
-- **Generation**: 1-3s (depending on LLM)
-- **Total**: < 5s end-to-end
+Available MCP tools: `ingest_data`, `ingest_document`, `query`, `search_documents`, `list_collections`, `get_collection_stats`, `delete_collection`, `clear_collection`, `get_system_stats`
 
 ## Testing
 
 ```bash
-# Run tests
 pytest tests/ -v
-
-# Run with coverage
 pytest tests/ --cov=. --cov-report=html
 ```
 
 ## Troubleshooting
 
-### API Key Issues
-```
-Error: OPENAI_API_KEY is required
-```
-**Solution**: Add your API key to `.env` file
+**`OPENAI_API_KEY is required`** — Add the key to `.env`, or switch `LLM_PROVIDER=ollama` for local inference.
 
-### Import Errors
-```
-ModuleNotFoundError: No module named 'chromadb'
-```
-**Solution**: Install dependencies with `pip install -r requirements.txt`
+**`ModuleNotFoundError: No module named 'chromadb'`** — Run `pip install -r requirements.txt` inside the conda env.
 
-### Empty Results
-```
-No relevant context found
-```
-**Solution**: Ensure data is ingested first with `--ingest` command
+**`No relevant context found`** — Ingest documents first. For reranking/HyDE strategies, lower `SIMILARITY_THRESHOLD` or switch strategies if the collection is small.
 
-## MCP Integration
+**Stale Streamlit cache after code changes** — Restart the Streamlit server; `@st.cache_resource` persists across reruns.
 
-Expose your RAG system as MCP (Model Context Protocol) tools for integration with AI assistants like Claude Desktop.
-
-See [MCP_SETUP.md](MCP_SETUP.md) for detailed setup instructions.
-
-**Quick setup:**
-```bash
-# Install MCP dependency
-pip install mcp
-
-# Run the MCP server
-python mcp_server.py
-```
-
-Available MCP tools:
-- `ingest_data` - Load generic JSON/CSV dashboard data
-- `ingest_keytable` - Load a keytable JSON API response
-- `query_dashboard` - Ask questions with AI-generated answers
-- `search_documents` - Search without generation
-- `get_system_stats` - View system info
-- `clear_data` - Clear all data
-
-## Advanced Usage
-
-### Custom Data Sources
-
-```python
-from data_loader import DataLoader
-
-loader = DataLoader()
-
-# Load from CSV
-documents = loader.load_and_process(
-    "data.csv",
-    source_type="csv",
-    text_fields=["title", "description"],
-    metadata_fields=["date", "category"]
-)
-```
-
-### Direct Component Access
-
-```python
-from vector_store import VectorStore
-from retriever import Retriever
-
-# Initialize components
-vector_store = VectorStore()
-retriever = Retriever(vector_store)
-
-# Retrieve without generation
-results = retriever.retrieve("revenue metrics", top_k=5)
-```
+**SpaCy / NLTK strategy errors** — Run `python -m spacy download en_core_web_sm` and `python -c "import nltk; nltk.download('punkt')"`.
 
 ## License
 
 MIT License
-
-## Contributing
-
-Contributions welcome! Please open an issue or submit a pull request.
-
-## Support
-
-For issues or questions, please open a GitHub issue.
