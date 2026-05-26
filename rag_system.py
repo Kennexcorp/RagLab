@@ -27,7 +27,8 @@ class RAGSystem:
         Args:
             log_level: Logging level
         """
-        self.logger = setup_logging(log_level, log_file="rag_system.log")
+        _log_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "rag_system.log")
+        self.logger = setup_logging(log_level, log_file=_log_file)
         self.logger.info("Initializing RAG System")
 
         # Validate configuration
@@ -85,6 +86,42 @@ class RAGSystem:
         self.logger.info(f"Ingestion complete: {len(chunks)} chunks")
 
         return len(chunks)
+
+    def ingest_keytable(self, file_path: str) -> int:
+        """
+        Ingest a keytable JSON file into the RAG system.
+
+        Each row in the series tree becomes one document — chunking is skipped
+        because rows are already properly sized for embedding.  Multiple calls
+        with different dates accumulate in the same collection, enabling
+        cross-date semantic search and per-date metadata filtering.
+
+        Args:
+            file_path: Path to the keytable JSON file
+
+        Returns:
+            Number of documents ingested
+        """
+        from keytable_loader import KeytableLoader
+
+        self.logger.info(f"Ingesting keytable from {file_path}")
+        self.performance_monitor.start_timer("data_ingestion")
+
+        loader = KeytableLoader(log_level="INFO")
+        documents = loader.load(file_path)
+
+        if not documents:
+            self.logger.warning("No documents extracted from keytable")
+            return 0
+
+        self.vector_store.add_documents(documents)
+
+        if self.retriever.use_hybrid:
+            self.retriever.fit_hybrid_search(documents)
+
+        self.performance_monitor.end_timer("data_ingestion")
+        self.logger.info(f"Keytable ingestion complete: {len(documents)} documents")
+        return len(documents)
 
     def query(
         self, question: str, top_k: int = None, include_sources: bool = True
@@ -187,6 +224,11 @@ def main():
         choices=["json", "csv"],
         help="Type of data source",
     )
+    parser.add_argument(
+        "--ingest-keytable",
+        type=str,
+        help="Path to keytable JSON file to ingest",
+    )
     parser.add_argument("--query", type=str, help="Question to ask")
     parser.add_argument(
         "--top-k", type=int, default=5, help="Number of results to retrieve"
@@ -218,6 +260,10 @@ def main():
         num_chunks = rag.ingest_data(args.ingest, source_type=args.source_type)
         print(f"✓ Ingested data: {num_chunks} chunks added")
 
+    if args.ingest_keytable:
+        num_docs = rag.ingest_keytable(args.ingest_keytable)
+        print(f"✓ Keytable ingested: {num_docs} documents added")
+
     if args.stats:
         stats = rag.get_stats()
         print("\n=== System Statistics ===")
@@ -241,7 +287,7 @@ def main():
 
     if args.interactive:
         print("\n=== Interactive RAG System ===")
-        print("Type 'exit' to quit, 'stats' for statistics\n")
+        print("Commands: 'exit', 'stats', 'ingest-keytable <path>'\n")
 
         while True:
             try:
@@ -252,6 +298,11 @@ def main():
                 elif question.lower() == "stats":
                     stats = rag.get_stats()
                     print(f"Documents: {stats['vector_store']['document_count']}")
+                    continue
+                elif question.lower().startswith("ingest-keytable "):
+                    path = question[len("ingest-keytable "):].strip()
+                    num_docs = rag.ingest_keytable(path)
+                    print(f"✓ Keytable ingested: {num_docs} documents added\n")
                     continue
                 elif not question:
                     continue

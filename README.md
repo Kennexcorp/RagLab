@@ -62,8 +62,14 @@ python rag_system.py --interactive
 ### Command Line Interface
 
 ```bash
-# Ingest data
+# Ingest generic JSON/CSV data
 python rag_system.py --ingest sample_data.json
+
+# Ingest a keytable API response (gold market data)
+python rag_system.py --ingest-keytable keytable-raw.json
+
+# Flags can be combined — ingest then query in one command
+python rag_system.py --ingest-keytable keytable-raw.json --query "What was mine production in Q4 2025?"
 
 # Query with custom top-k
 python rag_system.py --query "What are our user engagement metrics?" --top-k 3
@@ -74,6 +80,21 @@ python rag_system.py --stats
 # Clear all data
 python rag_system.py --clear
 ```
+
+### Interactive Mode
+
+```bash
+python rag_system.py --interactive
+```
+
+Available commands inside the interactive session:
+
+| Command | Description |
+|---|---|
+| `exit` | Quit the session |
+| `stats` | Show document count |
+| `ingest-keytable <path>` | Load a keytable JSON file |
+| Any other text | Ask a question |
 
 ### Python API
 
@@ -134,6 +155,8 @@ Open `index.ipynb` for an interactive walkthrough with examples and visualizatio
 - **`retriever.py`**: Semantic search and context retrieval
 - **`generator.py`**: LLM integration for answer generation
 - **`rag_system.py`**: Main orchestrator and CLI
+- **`keytable_loader.py`**: Load and convert keytable JSON API responses into RAG documents
+- **`mcp_server.py`**: MCP server exposing RAG functionality as tools
 - **`utils.py`**: Logging, monitoring, and helper functions
 
 ## Configuration
@@ -162,8 +185,6 @@ CHUNKING_STRATEGY=semantic
 USE_HYBRID_SEARCH=true       # Enable hybrid search
 SEMANTIC_WEIGHT=0.7          # 70% weight for semantic search
 KEYWORD_WEIGHT=0.3           # 30% weight for keyword (BM25) search
-BM25_K1=1.5                  # BM25 term frequency saturation
-BM25_B=0.75                  # BM25 length normalization
 
 # Retrieval
 TOP_K_RESULTS=5
@@ -203,6 +224,26 @@ Key settings in `.env`:
 | `CHUNK_SIZE` | Chunk size in tokens | 512 |
 | `TOP_K_RESULTS` | Number of results to retrieve | 5 |
 | `CHUNKING_STRATEGY` | Chunking method (semantic/fixed) | semantic |
+
+## Keytable Data
+
+The system natively ingests keytable JSON API responses (gold market supply/demand data). Each row in the series tree becomes one RAG document combining a static definition with a generated narrative for the reporting period.
+
+```bash
+# Load a single period
+python rag_system.py --ingest-keytable keytable-raw.json
+
+# Load multiple periods (accumulates in the same collection)
+python rag_system.py --ingest-keytable data/q3-2025.json
+python rag_system.py --ingest-keytable data/q4-2025.json
+
+# Then query across periods
+python rag_system.py --query "How did mine production trend from Q3 to Q4 2025?"
+```
+
+Both the raw full API payload (`keytable-raw.json`) and the slim pre-filtered format (`keytable-data.json`) are accepted — the loader identifies the relevant columns automatically from the headers.
+
+Row definitions (units, formulas, descriptions) are stored in `data/keytable-definitions.json`.
 
 ## Sample Data
 
@@ -271,8 +312,9 @@ python mcp_server.py
 ```
 
 Available MCP tools:
-- `ingest_data` - Load dashboard data
-- `query_dashboard` - Ask questions
+- `ingest_data` - Load generic JSON/CSV dashboard data
+- `ingest_keytable` - Load a keytable JSON API response
+- `query_dashboard` - Ask questions with AI-generated answers
 - `search_documents` - Search without generation
 - `get_system_stats` - View system info
 - `clear_data` - Clear all data

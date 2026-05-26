@@ -55,12 +55,25 @@ Search for relevant documents without generating an answer.
 }
 ```
 
-### 4. `get_system_stats`
+### 4. `ingest_keytable`
+Ingest a keytable JSON API response into the RAG system. Each row in the series tree becomes one document. Accepts both the raw full API payload and the slim pre-filtered format — the loader identifies the relevant columns automatically.
+
+**Parameters:**
+- `file_path` (required): Path to the keytable JSON file
+
+**Example:**
+```json
+{
+  "file_path": "/path/to/keytable-raw.json"
+}
+```
+
+### 5. `get_system_stats`
 Get statistics about the RAG system.
 
 **Parameters:** None
 
-### 5. `clear_data`
+### 6. `clear_data`
 Clear all data from the vector store.
 
 **Parameters:** None
@@ -123,26 +136,56 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 **Note:** Update the path to match your actual installation directory.
 
-### 5. Activate Conda Environment (if using)
+**For Claude Code (CLI):**
 
-If you're using a conda environment, update the MCP config to activate it first:
+Add the server at project scope using the CLI:
+
+```bash
+claude mcp add rag-dashboard \
+  /Users/sly/Documents/MachineLearning/Retrieval\ Augmented\ Generation\ \(RAG\)/.conda/bin/python \
+  /Users/sly/Documents/MachineLearning/Retrieval\ Augmented\ Generation\ \(RAG\)/mcp_server.py
+```
+
+Or add it manually as a project-scoped server by creating `.mcp.json` in the project root:
 
 ```json
 {
   "mcpServers": {
     "rag-dashboard": {
-      "command": "conda",
+      "command": "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/.conda/bin/python",
       "args": [
-        "run",
-        "-p",
-        "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/.conda",
-        "python",
         "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/mcp_server.py"
       ]
     }
   }
 }
 ```
+
+To add it globally (available across all projects), add the same `mcpServers` block to `~/.claude/settings.json`.
+
+Verify the server is connected:
+```bash
+claude mcp list
+```
+
+### 5. Activate Conda Environment (if using)
+
+The simplest approach is to point directly to the conda env's Python binary — no activation step needed:
+
+```json
+{
+  "mcpServers": {
+    "rag-dashboard": {
+      "command": "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/.conda/bin/python",
+      "args": [
+        "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/mcp_server.py"
+      ]
+    }
+  }
+}
+```
+
+This works for both Claude Desktop and Claude Code (`.mcp.json`). The project-local `.conda/bin/python` already has all dependencies installed, so no `conda run` wrapper is needed.
 
 ## Usage Examples
 
@@ -194,19 +237,20 @@ Use the get_system_stats tool to see system information
 
 ### Custom Models
 
-You can customize the models used by setting environment variables in the MCP config:
+You can override any `.env` setting per-server via `env` in the MCP config:
 
 ```json
 {
   "mcpServers": {
     "rag-dashboard": {
-      "command": "python",
-      "args": ["mcp_server.py"],
+      "command": "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/.conda/bin/python",
+      "args": [
+        "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/mcp_server.py"
+      ],
       "env": {
-        "LLM_PROVIDER": "openai",
-        "LLM_MODEL": "gpt-4",
+        "LLM_PROVIDER": "anthropic",
+        "LLM_MODEL": "claude-sonnet-4-6",
         "EMBEDDING_MODEL": "all-MiniLM-L6-v2",
-        "CHUNK_SIZE": "512",
         "TOP_K_RESULTS": "5"
       }
     }
@@ -216,23 +260,27 @@ You can customize the models used by setting environment variables in the MCP co
 
 ### Multiple Instances
 
-You can run multiple RAG servers with different configurations:
+Run multiple RAG servers pointing at different ChromaDB collections:
 
 ```json
 {
   "mcpServers": {
-    "rag-dashboard-prod": {
-      "command": "python",
-      "args": ["mcp_server.py"],
+    "rag-gold-prod": {
+      "command": "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/.conda/bin/python",
+      "args": [
+        "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/mcp_server.py"
+      ],
       "env": {
-        "COLLECTION_NAME": "production_data"
+        "COLLECTION_NAME": "gold_production"
       }
     },
-    "rag-dashboard-dev": {
-      "command": "python",
-      "args": ["mcp_server.py"],
+    "rag-gold-dev": {
+      "command": "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/.conda/bin/python",
+      "args": [
+        "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/mcp_server.py"
+      ],
       "env": {
-        "COLLECTION_NAME": "development_data"
+        "COLLECTION_NAME": "gold_development"
       }
     }
   }

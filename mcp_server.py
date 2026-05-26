@@ -93,6 +93,20 @@ async def list_tools() -> list[Tool]:
                 "required": ["query"],
             },
         ),
+        Tool(
+            name="ingest_keytable",
+            description="Ingest a keytable JSON API response into the RAG system. Each row in the series becomes a separate document. Call once per date file to build up a multi-period collection that supports both semantic search and date-filtered queries.",
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "file_path": {
+                        "type": "string",
+                        "description": "Path to the keytable JSON file",
+                    },
+                },
+                "required": ["file_path"],
+            },
+        ),
     ]
 
 
@@ -191,6 +205,16 @@ Configuration:
                 result_text += f"Metadata: {metadata}\n\n"
 
             return [TextContent(type="text", text=result_text)]
+
+        elif name == "ingest_keytable":
+            file_path = arguments.get("file_path")
+            num_docs = rag_system.ingest_keytable(file_path)
+            return [
+                TextContent(
+                    type="text",
+                    text=f"Successfully ingested {num_docs} documents from {file_path}",
+                )
+            ]
 
         else:
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
