@@ -353,6 +353,8 @@ class RAGSystem:
         self.performance_monitor.end_timer("generation")
 
         response["question"] = question
+        response["search_question"] = search_question
+        response["context_tokens"] = context_data.get("total_tokens")
         self.performance_monitor.end_timer("query_processing")
         response["performance"] = self.performance_monitor.get_metrics()
 

@@ -122,13 +122,26 @@ class Generator:
                     history_msgs.append(HumanMessage(content=turn["content"]))
                 elif turn.get("role") == "assistant":
                     history_msgs.append(AIMessage(content=turn["content"]))
+            assembled_human = _HUMAN_MSG.format(context=context, question=query)
+            prompt_sent = (
+                f"[System]\n{self.system_prompt}\n\n"
+                + "".join(
+                    f"[{'User' if isinstance(m, HumanMessage) else 'Assistant'}]\n{m.content}\n\n"
+                    for m in history_msgs
+                )
+                + f"[User]\n{assembled_human}"
+            )
             messages = (
                 [SystemMessage(content=self.system_prompt)]
                 + history_msgs
-                + [HumanMessage(content=_HUMAN_MSG.format(context=context, question=query))]
+                + [HumanMessage(content=assembled_human)]
             )
             response = self._llm.invoke(messages)
         else:
+            prompt_sent = (
+                f"[System]\n{self.system_prompt}\n\n"
+                f"[User]\n{_HUMAN_MSG.format(context=context, question=query)}"
+            )
             response = self.chain.invoke({"context": context, "question": query})
 
         usage = getattr(response, "usage_metadata", None) or {}
@@ -144,6 +157,7 @@ class Generator:
             "model": self.model,
             "tokens_used": usage.get("total_tokens"),
             "finish_reason": finish_reason,
+            "prompt_sent": prompt_sent,
         }
 
     def generate_with_sources(

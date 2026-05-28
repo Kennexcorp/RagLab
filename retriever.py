@@ -8,6 +8,17 @@ import os
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 
+# langchain_community v0.4+ removed several vectorstore classes that langchain_classic's
+# SelfQueryRetriever still tries to import. Stub them all out so imports never fail.
+import langchain_community.vectorstores as _lcvs
+for _cls in [
+    "DatabricksVectorSearch", "DeepLake", "Milvus", "Neo4jVector",
+    "Qdrant", "Weaviate", "MongoDBAtlasVectorSearch", "TencentVectorDb", "Pinecone",
+]:
+    if not hasattr(_lcvs, _cls):
+        setattr(_lcvs, _cls, type(_cls, (), {}))
+del _cls
+
 from config import Config
 from vector_store import VectorStore
 from hybrid_search import LangChainHybridRetriever
@@ -301,12 +312,16 @@ class Retriever:
         ]
 
     def _retrieve_self_query(self, query: str, top_k: int) -> List[Dict[str, Any]]:
-        from langchain_classic.retrievers.self_query.base import SelfQueryRetriever
-        from langchain_classic.chains.query_constructor.schema import AttributeInfo
-        # Pass ChromaTranslator explicitly — avoids langchain_classic's _get_builtin_translator
-        # which tries to import optional vectorstores (e.g. DatabricksVectorSearch) that may
-        # not be present in the installed langchain_community version.
-        from langchain_community.query_constructors.chroma import ChromaTranslator
+        try:
+            from langchain_classic.retrievers.self_query.base import SelfQueryRetriever
+            from langchain_classic.chains.query_constructor.schema import AttributeInfo
+            # Pass ChromaTranslator explicitly — avoids langchain_classic's _get_builtin_translator
+            # which tries to import optional vectorstores (e.g. DatabricksVectorSearch) that may
+            # not be present in the installed langchain_community version.
+            from langchain_community.query_constructors.chroma import ChromaTranslator
+        except ImportError as exc:
+            self.logger.warning(f"Self-query imports failed ({exc}), falling back to semantic")
+            return self._retrieve_semantic(query, top_k)
 
         metadata_field_info = [
             AttributeInfo(name="title", description="Title of the document", type="string"),
@@ -316,18 +331,18 @@ class Retriever:
             AttributeInfo(name="tags", description="Comma-separated tags for the document", type="string"),
         ]
         llm = self._build_llm()
-        sq_retriever = SelfQueryRetriever.from_llm(
-            llm=llm,
-            vectorstore=self.vector_store.chroma,
-            document_contents="Passages from uploaded documents",
-            metadata_field_info=metadata_field_info,
-            structured_query_translator=ChromaTranslator(),
-            verbose=False,
-        )
         try:
+            sq_retriever = SelfQueryRetriever.from_llm(
+                llm=llm,
+                vectorstore=self.vector_store.chroma,
+                document_contents="Passages from uploaded documents",
+                metadata_field_info=metadata_field_info,
+                structured_query_translator=ChromaTranslator(),
+                verbose=False,
+            )
             docs = sq_retriever.invoke(query)
         except Exception as exc:
-            self.logger.warning(f"Self-query filter failed ({exc}), falling back to semantic")
+            self.logger.warning(f"Self-query failed ({exc}), falling back to semantic")
             return self._retrieve_semantic(query, top_k)
         return [
             {

@@ -82,16 +82,14 @@ STRATEGY_INFO: Dict[str, Dict[str, str]] = {
         "label": "spaCy Sentences",
         "description": (
             "Uses spaCy's sentence detector for high-quality sentence boundaries. "
-            "More accurate than rule-based splitting. "
-            "Requires: pip install spacy && python -m spacy download en_core_web_sm"
+            "More accurate than rule-based splitting."
         ),
     },
     "nltk": {
         "label": "NLTK Sentences",
         "description": (
             "Uses NLTK's Punkt sentence tokeniser for sentence-aware splitting. "
-            "Similar to spaCy but lighter. "
-            "Requires: pip install nltk (punkt data downloaded automatically)."
+            "Similar to spaCy but lighter."
         ),
     },
     "semantic-embedding": {
@@ -99,8 +97,7 @@ STRATEGY_INFO: Dict[str, Dict[str, str]] = {
         "description": (
             "Splits where meaning changes by comparing embedding similarity between "
             "adjacent sentences. Produces variable-length, semantically coherent chunks. "
-            "Highest retrieval quality but slowest. "
-            "Requires: pip install langchain-experimental"
+            "Highest retrieval quality but slowest."
         ),
     },
 }
@@ -191,8 +188,7 @@ class TextChunker:
                 return SpacyTextSplitter(chunk_size=sz, pipeline="en_core_web_sm")
             except (ImportError, OSError) as e:
                 raise ImportError(
-                    "spaCy strategy requires: "
-                    "pip install spacy && python -m spacy download en_core_web_sm"
+                    "spaCy strategy requires the spacy package and en_core_web_sm model"
                 ) from e
 
         elif s == "nltk":
@@ -203,7 +199,7 @@ class TextChunker:
                 return NLTKTextSplitter(chunk_size=sz)
             except ImportError as e:
                 raise ImportError(
-                    "NLTK strategy requires: pip install nltk"
+                    "NLTK strategy requires the nltk package"
                 ) from e
 
         elif s == "semantic-embedding":
@@ -214,7 +210,7 @@ class TextChunker:
                 return SemanticChunker(embeddings)
             except ImportError as e:
                 raise ImportError(
-                    "Semantic-embedding strategy requires: pip install langchain-experimental"
+                    "Semantic-embedding strategy requires the langchain-experimental package"
                 ) from e
 
         else:
