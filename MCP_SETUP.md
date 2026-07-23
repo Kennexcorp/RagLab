@@ -159,7 +159,7 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
       "command": "uv",
       "args": [
         "--directory",
-        "/Users/sylvester/Documents/MachineLearning/RAGLab",
+        "/path/to/RAGLab",
         "run",
         "mcp_server.py"
       ]
@@ -178,7 +178,7 @@ Create `.mcp.json` in the project root:
       "command": "uv",
       "args": [
         "--directory",
-        "/Users/sylvester/Documents/MachineLearning/RAGLab",
+        "/path/to/RAGLab",
         "run",
         "mcp_server.py"
       ]
@@ -191,7 +191,7 @@ Or add via the CLI:
 ```bash
 claude mcp add rag \
   uv \
-  --directory "/Users/sylvester/Documents/MachineLearning/RAGLab" \
+  --directory "/path/to/RAGLab" \
   run mcp_server.py
 ```
 
@@ -207,9 +207,9 @@ Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 {
   "mcpServers": {
     "rag": {
-      "command": "/Users/sylvester/Documents/MachineLearning/RAGLab/.venv/bin/python",
+      "command": "/path/to/RAGLab/.venv/bin/python",
       "args": [
-        "/Users/sylvester/Documents/MachineLearning/RAGLab/mcp_server.py"
+        "/path/to/RAGLab/mcp_server.py"
       ]
     }
   }
@@ -229,7 +229,7 @@ Override `.env` settings per-server via the `env` key in your MCP config:
       "command": "uv",
       "args": [
         "--directory",
-        "/Users/sylvester/Documents/MachineLearning/RAGLab",
+        "/path/to/RAGLab",
         "run",
         "mcp_server.py"
       ],
@@ -252,7 +252,7 @@ Override `.env` settings per-server via the `env` key in your MCP config:
       "command": "uv",
       "args": [
         "--directory",
-        "/Users/sylvester/Documents/MachineLearning/RAGLab",
+        "/path/to/RAGLab",
         "run",
         "mcp_server.py"
       ],
@@ -262,7 +262,7 @@ Override `.env` settings per-server via the `env` key in your MCP config:
       "command": "uv",
       "args": [
         "--directory",
-        "/Users/sylvester/Documents/MachineLearning/RAGLab",
+        "/path/to/RAGLab",
         "run",
         "mcp_server.py"
       ],
