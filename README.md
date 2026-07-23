@@ -1,8 +1,24 @@
-# RAG System
+# RAGLab
 
-A production-ready Retrieval Augmented Generation (RAG) system for natural language querying of documents and structured data. Built with LangChain, ChromaDB, and HuggingFace embeddings. Exposes functionality via a Streamlit chat UI, CLI, and MCP server.
+**A hands-on lab for building intuition about Retrieval Augmented Generation — ingest real documents, then compare 10 chunking strategies against 8 retrieval strategies and watch how each choice changes what the model retrieves and answers.** Built with LangChain, ChromaDB, and HuggingFace embeddings; exposed via a Streamlit chat UI, CLI, and MCP server.
 
-## Features
+## What it is
+
+Most RAG tutorials pick one chunking method and one retrieval strategy, wire them together, and call it done — so you never actually see *why* one choice beats another. Answering "would hybrid search have found this better than semantic search?" or "does markdown-aware chunking actually help here?" normally means writing a new throwaway script per combination.
+
+RAGLab turns that into a live comparison instead of a guessing game: ingest a document or dataset once, then swap the chunking strategy and retrieval strategy from the sidebar (or a CLI flag) and re-ask the same question. Every answer comes back with its cited source chunks, so you can see exactly which passages a given strategy pulled in — and why the answer changed when you switched it.
+
+## Use case
+
+You drop a folder of PDFs, DOCX reports, or JSON/CSV exports into the **Upload Documents** tab. You ask: *"What drove the Q3 revenue dip?"*
+
+- With `semantic` retrieval + `fixed` chunking, the answer cites two loosely related paragraphs split mid-sentence.
+- Switch chunking to `markdown-headers` (chunks respect section boundaries) and retrieval to `hybrid` (semantic + BM25 keyword matching) — same question, and now the cited chunks are the actual "Q3 Financial Summary" section, with a more grounded answer.
+- Try `hyde` (the LLM drafts a hypothetical answer first, then searches by that) or `multi-query` (the LLM rephrases your question several ways and merges results) to see how query-side techniques compare to chunking-side ones.
+
+That side-by-side comparison — same data, same question, different pipeline — is the whole point.
+
+## Key Features
 
 - **Streamlit Chat Interface**: Persistent multi-turn conversation with per-collection history
 - **Multi-Collection Support**: Organize documents into named collections; switch collections in the sidebar
@@ -10,7 +26,7 @@ A production-ready Retrieval Augmented Generation (RAG) system for natural langu
 - **10 Chunking Strategies**: Semantic, Fixed, Markdown, Markdown-Headers, Token, Python, LaTeX, SpaCy, NLTK, Semantic-Embedding
 - **Multiple LLM Providers**: Ollama (default/local), OpenAI, Anthropic Claude
 - **Document Ingestion**: PDF, DOCX, TXT, JSON, CSV via LangChain loaders
-- **Source Citations**: Answers include references to retrieved source chunks
+- **Source Citations**: Answers include references to retrieved source chunks — the mechanism that makes strategy comparison visible
 - **MCP Integration**: Expose as MCP tools for integration with Claude Desktop and Claude Code
 
 ## Quick Start
@@ -18,7 +34,7 @@ A production-ready Retrieval Augmented Generation (RAG) system for natural langu
 ### 1. Installation
 
 ```bash
-cd "Retrieval Augmented Generation (RAG)"
+cd RAGLab
 
 # Install dependencies and sync virtual environment
 uv sync
@@ -49,7 +65,7 @@ LLM_MODEL=claude-sonnet-4-6
 uv run streamlit run gui_app.py
 ```
 
-The app opens at `http://localhost:8501`. Use the **Upload Documents** tab to ingest files, then switch to **Chat** to ask questions.
+The app opens at `http://localhost:8501`. Use the **Upload Documents** tab to ingest files, then switch to **Chat** to ask questions — and try re-asking the same question after changing chunking/retrieval strategy in the sidebar.
 
 ### 4. CLI Usage
 
@@ -91,7 +107,7 @@ Upload PDF, DOCX, TXT, JSON, or CSV files. Supports multi-file upload. Form rese
 
 - Persistent conversation per collection — follow-up questions carry context from prior turns
 - Query rewriting: vague follow-ups ("explain that") are rewritten into standalone search queries before retrieval
-- Each assistant response includes a collapsible **Sources** expander with similarity scores and text previews
+- Each assistant response includes a collapsible **Sources** expander with similarity scores and text previews — this is the comparison surface: re-run a question after changing strategy and diff the sources
 - **Clear chat** button resets the current conversation without deleting documents
 
 ## Retrieval Strategies
@@ -99,7 +115,7 @@ Upload PDF, DOCX, TXT, JSON, or CSV files. Supports multi-file upload. Form rese
 | Strategy | Description |
 |---|---|
 | `semantic` | Dense vector similarity search (default) |
-| `hybrid` | Semantic (BM25-weighted ensemble); adjustable semantic weight |
+| `hybrid` | Semantic + keyword (BM25-weighted ensemble); adjustable semantic weight |
 | `mmr` | Maximal Marginal Relevance — diverse, non-redundant results |
 | `multi-query` | LLM generates multiple query phrasings; results merged |
 | `reranking` | Initial semantic recall + cross-encoder reranking |
@@ -122,7 +138,7 @@ Upload PDF, DOCX, TXT, JSON, or CSV files. Supports multi-file upload. Form rese
 | `nltk` | Sentence tokenization via NLTK |
 | `semantic-embedding` | Groups semantically similar sentences using embeddings |
 
-## Architecture
+## How It Works
 
 ```
 ┌─────────────────────────────────────────────────────┐
@@ -149,6 +165,16 @@ Upload PDF, DOCX, TXT, JSON, or CSV files. Supports multi-file upload. Form rese
         │   embeddings)       │
         └─────────────────────┘
 ```
+
+### Why these choices
+
+| Choice | Over | Because |
+|---|---|---|
+| **LangChain abstractions** (splitters, loaders, retrievers, LCEL chains) | Hand-rolled chunking/retrieval code | Every strategy shares one interface, so swapping strategies in the UI is a config change, not a rewrite — the whole point of a comparison lab |
+| **ChromaDB** | Weaviate, FAISS | Zero-infra local persistence for a project meant to run on a laptop; Weaviate support is on the roadmap as a switchable backend for comparing vector store behavior too |
+| **HuggingFace local embeddings (default)** | OpenAI embeddings | No API cost or key required to start experimenting; OpenAI/Anthropic remain available as swappable providers for cloud comparison |
+| **Ollama as default LLM provider** | Cloud-only (OpenAI/Anthropic) | Keeps the "ingest → compare strategies" loop free and offline by default; cloud providers are one `.env` change away |
+| **Streamlit UI** | Tkinter, custom web app | Fast to iterate on for a sidebar full of strategy toggles; state lives in `st.session_state` so switching strategies mid-conversation is cheap |
 
 ## Components
 
@@ -268,15 +294,20 @@ uv run pytest tests/ --cov=. --cov-report=html
 
 ## Troubleshooting
 
-**`OPENAI_API_KEY is required`** — Add the key to `.env`, or switch `LLM_PROVIDER=ollama` for local inference.
+| Symptom | Fix |
+|---|---|
+| `OPENAI_API_KEY is required` | Add the key to `.env`, or switch `LLM_PROVIDER=ollama` for local inference |
+| `ModuleNotFoundError: No module named 'chromadb'` | Run `uv sync` to ensure all packages are installed |
+| `No relevant context found` | Ingest documents first. For reranking/HyDE strategies, lower `SIMILARITY_THRESHOLD` or switch strategies if the collection is small |
+| Stale Streamlit cache after code changes | Restart the Streamlit server; `@st.cache_resource` persists across reruns |
+| SpaCy / NLTK strategy errors | Run `uv run python -m spacy download en_core_web_sm` and `uv run python -c "import nltk; nltk.download('punkt')"` |
 
-**`ModuleNotFoundError: No module named 'chromadb'`** — Run `uv sync` to ensure all packages are installed.
+## Roadmap
 
-**`No relevant context found`** — Ingest documents first. For reranking/HyDE strategies, lower `SIMILARITY_THRESHOLD` or switch strategies if the collection is small.
-
-**Stale Streamlit cache after code changes** — Restart the Streamlit server; `@st.cache_resource` persists across reruns.
-
-**SpaCy / NLTK strategy errors** — Run `uv run python -m spacy download en_core_web_sm` and `uv run python -c "import nltk; nltk.download('punkt')"`.
+- [ ] Weaviate vector store — switchable with ChromaDB via config, to compare vector store behavior alongside chunking/retrieval strategy
+- [ ] Additional chunking methods (further sentence-based, structure-aware variants)
+- [ ] Reranking refinements — expand cross-encoder reranker options
+- [ ] Prompt templates with intent classification — route queries to the right collection/prompt automatically
 
 ## License
 

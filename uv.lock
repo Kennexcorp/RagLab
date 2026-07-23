@@ -3841,7 +3841,7 @@ wheels = [
 ]
 
 [[package]]
-name = "rag-system"
+name = "raglab"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
