@@ -20,9 +20,8 @@ A production-ready Retrieval Augmented Generation (RAG) system for natural langu
 ```bash
 cd "Retrieval Augmented Generation (RAG)"
 
-# Install dependencies (use the project conda env)
-source .conda/bin/activate
-pip install -r requirements.txt
+# Install dependencies and sync virtual environment
+uv sync
 ```
 
 ### 2. Configuration
@@ -47,7 +46,7 @@ LLM_MODEL=claude-sonnet-4-6
 ### 3. Run the GUI
 
 ```bash
-streamlit run gui_app.py
+uv run streamlit run gui_app.py
 ```
 
 The app opens at `http://localhost:8501`. Use the **Upload Documents** tab to ingest files, then switch to **Chat** to ask questions.
@@ -56,19 +55,19 @@ The app opens at `http://localhost:8501`. Use the **Upload Documents** tab to in
 
 ```bash
 # Ingest a JSON or CSV file
-python rag_system.py --ingest data.json --source-type json
+uv run python rag_system.py --ingest data.json --source-type json
 
 # Ask a one-shot question
-python rag_system.py --query "What does this document say about revenue?"
+uv run python rag_system.py --query "What does this document say about revenue?"
 
 # Interactive REPL
-python rag_system.py --interactive
+uv run python rag_system.py --interactive
 
 # View system stats
-python rag_system.py --stats
+uv run python rag_system.py --stats
 
 # Clear a collection
-python rag_system.py --clear
+uv run python rag_system.py --clear
 ```
 
 ## GUI Overview
@@ -255,7 +254,7 @@ Expose the RAG system as MCP tools for Claude Desktop and Claude Code.
 See [MCP_SETUP.md](MCP_SETUP.md) for full setup instructions.
 
 ```bash
-python mcp_server.py
+uv run python mcp_server.py
 ```
 
 Available MCP tools: `ingest_data`, `ingest_document`, `query`, `search_documents`, `list_collections`, `get_collection_stats`, `delete_collection`, `clear_collection`, `get_system_stats`
@@ -263,21 +262,21 @@ Available MCP tools: `ingest_data`, `ingest_document`, `query`, `search_document
 ## Testing
 
 ```bash
-pytest tests/ -v
-pytest tests/ --cov=. --cov-report=html
+uv run pytest tests/ -v
+uv run pytest tests/ --cov=. --cov-report=html
 ```
 
 ## Troubleshooting
 
 **`OPENAI_API_KEY is required`** — Add the key to `.env`, or switch `LLM_PROVIDER=ollama` for local inference.
 
-**`ModuleNotFoundError: No module named 'chromadb'`** — Run `pip install -r requirements.txt` inside the conda env.
+**`ModuleNotFoundError: No module named 'chromadb'`** — Run `uv sync` to ensure all packages are installed.
 
 **`No relevant context found`** — Ingest documents first. For reranking/HyDE strategies, lower `SIMILARITY_THRESHOLD` or switch strategies if the collection is small.
 
 **Stale Streamlit cache after code changes** — Restart the Streamlit server; `@st.cache_resource` persists across reruns.
 
-**SpaCy / NLTK strategy errors** — Run `python -m spacy download en_core_web_sm` and `python -c "import nltk; nltk.download('punkt')"`.
+**SpaCy / NLTK strategy errors** — Run `uv run python -m spacy download en_core_web_sm` and `uv run python -c "import nltk; nltk.download('punkt')"`.
 
 ## License
 

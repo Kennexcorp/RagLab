@@ -1,0 +1,44 @@
+[project]
+name = "rag-system"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "anthropic>=0.18.0",
+    "chromadb>=0.4.22",
+    "docx2txt>=0.8",
+    "langchain>=0.1.0",
+    "langchain-anthropic>=0.1.0",
+    "langchain-chroma>=1.1.0",
+    "langchain-classic>=1.0.7",
+    "langchain-community>=0.0.20",
+    "langchain-experimental>=0.0.50",
+    "langchain-huggingface>=1.2.0",
+    "langchain-ollama>=1.0.1",
+    "langchain-openai>=0.1.0",
+    "langchain-text-splitters>=0.1.0",
+    "mcp>=1.0.0",
+    "nltk>=3.8.1",
+    "numpy>=1.26.3",
+    "openai>=1.12.0",
+    "pandas>=2.1.4",
+    "plotly>=5.0.0",
+    "pypdf>=4.0.0",
+    "python-dotenv>=1.0.0",
+    "rank-bm25>=0.2.2",
+    "requests>=2.31.0",
+    "sentence-transformers>=2.3.1",
+    "spacy>=3.7.0",
+    "streamlit>=1.35.0",
+    "tiktoken>=0.5.2",
+    "torchvision>=0.28.0",
+    "umap-learn>=0.5.3",
+]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=6.29.0",
+    "jupyter>=1.0.0",
+    "notebook>=7.0.7",
+    "pytest>=7.4.4",
+    "pytest-cov>=4.1.0",
+]

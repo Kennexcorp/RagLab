@@ -118,8 +118,7 @@ Get overall system statistics: configuration, default collection info, document 
 ### 1. Install Dependencies
 
 ```bash
-source .conda/bin/activate
-pip install -r requirements.txt
+uv sync
 ```
 
 ### 2. Configure Environment
@@ -138,7 +137,7 @@ LLM_MODEL=llama3.2
 ### 3. Test the Server
 
 ```bash
-python mcp_server.py
+uv run python mcp_server.py
 ```
 
 The server starts and listens on stdin/stdout (MCP stdio transport).
@@ -147,34 +146,41 @@ The server starts and listens on stdin/stdout (MCP stdio transport).
 
 ## Register with MCP Clients
 
-### Claude Desktop
+### Option A: Using `uv` (Recommended)
+This approach leverages the `uv` command-line tool directly. It automatically handles virtual environment configuration and is highly portable.
 
+#### Claude Desktop
 Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "rag": {
-      "command": "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/.conda/bin/python",
+      "command": "uv",
       "args": [
-        "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/mcp_server.py"
+        "--directory",
+        "/Users/sylvester/Documents/MachineLearning/Retrieval Augmented Generation (RAG)",
+        "run",
+        "mcp_server.py"
       ]
     }
   }
 }
 ```
 
-### Claude Code (project-scoped)
-
+#### Claude Code (project-scoped)
 Create `.mcp.json` in the project root:
 
 ```json
 {
   "mcpServers": {
     "rag": {
-      "command": "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/.conda/bin/python",
+      "command": "uv",
       "args": [
-        "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/mcp_server.py"
+        "--directory",
+        "/Users/sylvester/Documents/MachineLearning/Retrieval Augmented Generation (RAG)",
+        "run",
+        "mcp_server.py"
       ]
     }
   }
@@ -182,35 +188,50 @@ Create `.mcp.json` in the project root:
 ```
 
 Or add via the CLI:
-
 ```bash
 claude mcp add rag \
-  /Users/sly/Documents/MachineLearning/Retrieval\ Augmented\ Generation\ \(RAG\)/.conda/bin/python \
-  /Users/sly/Documents/MachineLearning/Retrieval\ Augmented\ Generation\ \(RAG\)/mcp_server.py
+  uv \
+  --directory "/Users/sylvester/Documents/MachineLearning/Retrieval Augmented Generation (RAG)" \
+  run mcp_server.py
 ```
-
-Verify the server is registered:
-```bash
-claude mcp list
-```
-
-### Global (all projects)
-
-Add the same `mcpServers` block to `~/.claude/settings.json`.
 
 ---
 
-## Advanced Configuration
+### Option B: Using the `.venv` Python Binary
+If you prefer not to call `uv` globally, you can point directly to the python interpreter created in the local virtual environment.
 
-Override `.env` settings per-server via the `env` key in your MCP config. Useful for switching providers or targeting a specific collection:
+#### Claude Desktop
+Add to `~/Library/Application Support/Claude/claude_desktop_config.json`:
 
 ```json
 {
   "mcpServers": {
     "rag": {
-      "command": "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/.conda/bin/python",
+      "command": "/Users/sylvester/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/.venv/bin/python",
       "args": [
-        "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/mcp_server.py"
+        "/Users/sylvester/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/mcp_server.py"
+      ]
+    }
+  }
+}
+```
+
+---
+
+## Advanced Configuration
+
+Override `.env` settings per-server via the `env` key in your MCP config:
+
+```json
+{
+  "mcpServers": {
+    "rag": {
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/Users/sylvester/Documents/MachineLearning/Retrieval Augmented Generation (RAG)",
+        "run",
+        "mcp_server.py"
       ],
       "env": {
         "LLM_PROVIDER": "anthropic",
@@ -228,13 +249,23 @@ Override `.env` settings per-server via the `env` key in your MCP config. Useful
 {
   "mcpServers": {
     "rag-legal": {
-      "command": "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/.conda/bin/python",
-      "args": ["/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/mcp_server.py"],
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/Users/sylvester/Documents/MachineLearning/Retrieval Augmented Generation (RAG)",
+        "run",
+        "mcp_server.py"
+      ],
       "env": { "COLLECTION_NAME": "legal" }
     },
     "rag-finance": {
-      "command": "/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/.conda/bin/python",
-      "args": ["/Users/sly/Documents/MachineLearning/Retrieval Augmented Generation (RAG)/mcp_server.py"],
+      "command": "uv",
+      "args": [
+        "--directory",
+        "/Users/sylvester/Documents/MachineLearning/Retrieval Augmented Generation (RAG)",
+        "run",
+        "mcp_server.py"
+      ],
       "env": { "COLLECTION_NAME": "finance" }
     }
   }
@@ -249,7 +280,7 @@ Override `.env` settings per-server via the `env` key in your MCP config. Useful
 
 **`API key required` errors** — Ensure `.env` has a valid key for your chosen `LLM_PROVIDER`, or switch to `ollama` for local inference.
 
-**`Module not found` errors** — Verify the `command` path points to `.conda/bin/python`, not the system Python.
+**`Module not found` errors** — Verify the `command` path points to the virtual environment python (`.venv/bin/python`), or use `uv` as the command.
 
 **`No relevant context found`** — Ingest documents first using `ingest_data` or `ingest_document`.
 
