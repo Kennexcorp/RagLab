@@ -4,14 +4,13 @@ Uses LangChain's ChatPromptTemplate and provider-specific LLM wrappers
 to replace manual prompt construction and per-provider API calls.
 """
 
-from typing import Dict, Any, List, Optional
+from typing import Any
 
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 
 from config import Config
 from utils import setup_logging, timer
-
 
 _HUMAN_MSG = (
     "Context:\n{context}\n\n"
@@ -53,21 +52,22 @@ class Generator:
         self.api_key = api_key or Config.get_llm_api_key()
 
         self.system_prompt = system_prompt or Config.SYSTEM_PROMPT
-        self._prompt = ChatPromptTemplate.from_messages([
-            ("system", self.system_prompt),
-            ("human", _HUMAN_MSG),
-        ])
+        self._prompt = ChatPromptTemplate.from_messages(
+            [
+                ("system", self.system_prompt),
+                ("human", _HUMAN_MSG),
+            ]
+        )
         self._llm = self._build_llm()
         self.chain = self._prompt | self._llm
 
-        self.logger.info(
-            f"Generator initialized: provider={self.provider}, model={self.model}"
-        )
+        self.logger.info(f"Generator initialized: provider={self.provider}, model={self.model}")
 
     def _build_llm(self):
         """Instantiate the LangChain LLM wrapper for the configured provider."""
         if self.provider == "openai":
             from langchain_openai import ChatOpenAI
+
             if not self.api_key:
                 raise ValueError("OpenAI API key is required")
             return ChatOpenAI(
@@ -79,6 +79,7 @@ class Generator:
 
         elif self.provider == "anthropic":
             from langchain_anthropic import ChatAnthropic
+
             if not self.api_key:
                 raise ValueError("Anthropic API key is required")
             return ChatAnthropic(
@@ -90,6 +91,7 @@ class Generator:
 
         elif self.provider == "ollama":
             from langchain_ollama import ChatOllama
+
             return ChatOllama(model=self.model, temperature=self.temperature)
 
         else:
@@ -100,8 +102,8 @@ class Generator:
         self,
         query: str,
         context: str,
-        conversation_history: List[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        conversation_history: list[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """
         Generate answer for a query using retrieved context.
 
@@ -163,9 +165,9 @@ class Generator:
     def generate_with_sources(
         self,
         query: str,
-        context_data: Dict[str, Any],
-        conversation_history: List[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        context_data: dict[str, Any],
+        conversation_history: list[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """
         Generate answer and include source citations.
 

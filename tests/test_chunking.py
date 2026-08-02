@@ -3,6 +3,7 @@ Unit tests for chunking module.
 """
 
 import pytest
+
 from chunking import TextChunker
 
 
@@ -24,16 +25,16 @@ class TestTextChunker:
 
         assert len(chunks) > 1, "Should create multiple chunks"
         assert all("text" in chunk for chunk in chunks), "All chunks should have text"
-        assert all(
-            "metadata" in chunk for chunk in chunks
-        ), "All chunks should have metadata"
+        assert all("metadata" in chunk for chunk in chunks), "All chunks should have metadata"
 
     def test_chunk_by_sentences(self):
         """Test sentence-based chunking."""
         chunker = TextChunker(chunk_size=50, chunk_overlap=10, strategy="semantic")
 
         document = {
-            "text": "First sentence. Second sentence. Third sentence. Fourth sentence. Fifth sentence.",
+            "text": (
+                "First sentence. Second sentence. Third sentence. Fourth sentence. Fifth sentence."
+            ),
             "metadata": {"source": "test"},
         }
 
@@ -62,9 +63,7 @@ class TestTextChunker:
 
         for chunk in chunks:
             assert chunk["metadata"]["source"] == "test", "Should preserve source"
-            assert (
-                chunk["metadata"]["category"] == "example"
-            ), "Should preserve category"
+            assert chunk["metadata"]["category"] == "example", "Should preserve category"
 
     def test_chunk_documents_batch(self):
         """Test chunking multiple documents."""

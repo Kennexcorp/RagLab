@@ -4,11 +4,10 @@ Supports loading dashboard data from various sources (JSON, CSV, API).
 """
 
 import json
-import logging
-from typing import List, Dict, Any, Optional
-from pathlib import Path
-import pandas as pd
 from datetime import datetime
+from typing import Any
+
+import pandas as pd
 
 from utils import setup_logging, validate_file_exists
 
@@ -25,7 +24,7 @@ class DataLoader:
         """
         self.logger = setup_logging(log_level)
 
-    def load_json(self, file_path: str) -> List[Dict[str, Any]]:
+    def load_json(self, file_path: str) -> list[dict[str, Any]]:
         """
         Load data from JSON file.
 
@@ -40,7 +39,7 @@ class DataLoader:
 
         self.logger.info(f"Loading JSON data from {file_path}")
 
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             data = json.load(f)
 
         # Ensure data is a list
@@ -50,7 +49,7 @@ class DataLoader:
         self.logger.info(f"Loaded {len(data)} records from JSON")
         return data
 
-    def load_csv(self, file_path: str) -> List[Dict[str, Any]]:
+    def load_csv(self, file_path: str) -> list[dict[str, Any]]:
         """
         Load data from CSV file.
 
@@ -71,7 +70,7 @@ class DataLoader:
         self.logger.info(f"Loaded {len(data)} records from CSV")
         return data
 
-    def load_from_dict(self, data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def load_from_dict(self, data: dict[str, Any]) -> list[dict[str, Any]]:
         """
         Load data from dictionary (e.g., API response).
 
@@ -90,7 +89,7 @@ class DataLoader:
         return data
 
     def extract_text_from_record(
-        self, record: Dict[str, Any], text_fields: Optional[List[str]] = None
+        self, record: dict[str, Any], text_fields: list[str] | None = None
     ) -> str:
         """
         Extract text content from a data record.
@@ -120,8 +119,8 @@ class DataLoader:
         return "\n".join(text_parts)
 
     def extract_metadata(
-        self, record: Dict[str, Any], metadata_fields: Optional[List[str]] = None
-    ) -> Dict[str, Any]:
+        self, record: dict[str, Any], metadata_fields: list[str] | None = None
+    ) -> dict[str, Any]:
         """
         Extract metadata from a data record.
 
@@ -150,10 +149,10 @@ class DataLoader:
 
     def process_records(
         self,
-        records: List[Dict[str, Any]],
-        text_fields: Optional[List[str]] = None,
-        metadata_fields: Optional[List[str]] = None,
-    ) -> List[Dict[str, Any]]:
+        records: list[dict[str, Any]],
+        text_fields: list[str] | None = None,
+        metadata_fields: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Process records into format suitable for RAG system.
 
@@ -187,9 +186,9 @@ class DataLoader:
         self,
         source: str,
         source_type: str = "json",
-        text_fields: Optional[List[str]] = None,
-        metadata_fields: Optional[List[str]] = None,
-    ) -> List[Dict[str, Any]]:
+        text_fields: list[str] | None = None,
+        metadata_fields: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Load and process data in one step.
 

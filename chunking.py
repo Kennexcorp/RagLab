@@ -3,14 +3,13 @@ Text chunking module for RAG system.
 Supports multiple LangChain splitting strategies.
 """
 
-from typing import List, Dict, Any
+from typing import Any
 
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from config import Config
 from utils import setup_logging
-
 
 # All supported strategy identifiers
 STRATEGIES = [
@@ -27,7 +26,7 @@ STRATEGIES = [
 ]
 
 # Human-readable labels and descriptions shown in the GUI
-STRATEGY_INFO: Dict[str, Dict[str, str]] = {
+STRATEGY_INFO: dict[str, dict[str, str]] = {
     "semantic": {
         "label": "Semantic (Recommended)",
         "description": (
@@ -130,7 +129,7 @@ class TextChunker:
 
         self.splitter = self._build_splitter()
         # MarkdownHeaderTextSplitter has a different API — flag it for chunk_document
-        self._is_header_splitter = (strategy == "markdown-headers")
+        self._is_header_splitter = strategy == "markdown-headers"
 
         self.logger.info(
             f"TextChunker initialised (strategy={strategy}, "
@@ -145,46 +144,57 @@ class TextChunker:
 
         if s == "semantic":
             return RecursiveCharacterTextSplitter(
-                chunk_size=sz, chunk_overlap=ov,
+                chunk_size=sz,
+                chunk_overlap=ov,
                 separators=["\n\n", "\n", ". ", " ", ""],
                 length_function=len,
             )
 
         elif s == "fixed":
             return RecursiveCharacterTextSplitter(
-                chunk_size=sz, chunk_overlap=ov,
+                chunk_size=sz,
+                chunk_overlap=ov,
                 separators=[" ", ""],
                 length_function=len,
             )
 
         elif s == "markdown":
             from langchain_text_splitters import MarkdownTextSplitter
+
             return MarkdownTextSplitter(chunk_size=sz, chunk_overlap=ov)
 
         elif s == "markdown-headers":
             from langchain_text_splitters import MarkdownHeaderTextSplitter
+
             return MarkdownHeaderTextSplitter(
                 headers_to_split_on=[
-                    ("#", "h1"), ("##", "h2"), ("###", "h3"), ("####", "h4"),
+                    ("#", "h1"),
+                    ("##", "h2"),
+                    ("###", "h3"),
+                    ("####", "h4"),
                 ],
                 strip_headers=False,
             )
 
         elif s == "token":
             from langchain_text_splitters import TokenTextSplitter
+
             return TokenTextSplitter(chunk_size=sz, chunk_overlap=ov)
 
         elif s == "python":
             from langchain_text_splitters import PythonCodeTextSplitter
+
             return PythonCodeTextSplitter(chunk_size=sz, chunk_overlap=ov)
 
         elif s == "latex":
             from langchain_text_splitters import LatexTextSplitter
+
             return LatexTextSplitter(chunk_size=sz, chunk_overlap=ov)
 
         elif s == "spacy":
             try:
                 from langchain_text_splitters import SpacyTextSplitter
+
                 return SpacyTextSplitter(chunk_size=sz, pipeline="en_core_web_sm")
             except (ImportError, OSError) as e:
                 raise ImportError(
@@ -194,18 +204,19 @@ class TextChunker:
         elif s == "nltk":
             try:
                 import nltk
+
                 nltk.download("punkt_tab", quiet=True)
                 from langchain_text_splitters import NLTKTextSplitter
+
                 return NLTKTextSplitter(chunk_size=sz)
             except ImportError as e:
-                raise ImportError(
-                    "NLTK strategy requires the nltk package"
-                ) from e
+                raise ImportError("NLTK strategy requires the nltk package") from e
 
         elif s == "semantic-embedding":
             try:
                 from langchain_experimental.text_splitter import SemanticChunker
                 from langchain_huggingface import HuggingFaceEmbeddings
+
                 embeddings = HuggingFaceEmbeddings(model_name=self.embedding_model_name)
                 return SemanticChunker(embeddings)
             except ImportError as e:
@@ -214,11 +225,9 @@ class TextChunker:
                 ) from e
 
         else:
-            raise ValueError(
-                f"Unknown strategy '{s}'. Choose from: {', '.join(STRATEGIES)}"
-            )
+            raise ValueError(f"Unknown strategy '{s}'. Choose from: {', '.join(STRATEGIES)}")
 
-    def chunk_document(self, document: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def chunk_document(self, document: dict[str, Any]) -> list[dict[str, Any]]:
         """
         Chunk a single document.
 
@@ -248,7 +257,7 @@ class TextChunker:
                 "text": split.page_content,
                 "metadata": {
                     **metadata,
-                    **split.metadata,   # header splitter adds h1/h2/h3 keys here
+                    **split.metadata,  # header splitter adds h1/h2/h3 keys here
                     "chunk_index": i,
                 },
             }
@@ -258,7 +267,7 @@ class TextChunker:
         self.logger.debug(f"Created {len(chunks)} chunks from document")
         return chunks
 
-    def chunk_documents(self, documents: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def chunk_documents(self, documents: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """
         Chunk a list of documents.
 

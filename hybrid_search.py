@@ -3,10 +3,9 @@ Hybrid search module using LangChain's EnsembleRetriever.
 Combines semantic vector search with BM25 keyword search.
 """
 
-import logging
 import pickle
-from typing import List, Dict, Any
 from pathlib import Path
+from typing import Any
 
 from langchain_classic.retrievers import EnsembleRetriever
 from langchain_community.retrievers import BM25Retriever
@@ -54,7 +53,7 @@ class LangChainHybridRetriever:
             f"(semantic: {self.semantic_weight:.0%}, keyword: {self.keyword_weight:.0%})"
         )
 
-    def fit(self, documents: List[Dict[str, Any]]):
+    def fit(self, documents: list[dict[str, Any]]):
         """
         Fit the BM25 retriever on documents.
 
@@ -134,9 +133,7 @@ class LangChainHybridRetriever:
         self.logger.info("Ensemble retriever created")
         return self.ensemble_retriever
 
-    def search(
-        self, query: str, vector_retriever, top_k: int = 5
-    ) -> List[Dict[str, Any]]:
+    def search(self, query: str, vector_retriever, top_k: int = 5) -> list[dict[str, Any]]:
         """
         Perform hybrid search using ensemble retriever.
 

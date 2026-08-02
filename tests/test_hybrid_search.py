@@ -3,13 +3,19 @@ Test hybrid search functionality using LangChainHybridRetriever.
 """
 
 import pytest
-from hybrid_search import LangChainHybridRetriever
 
+from hybrid_search import LangChainHybridRetriever
 
 SAMPLE_DOCS = [
     {"text": "Q4 revenue increased by 25%", "metadata": {"category": "finance"}},
-    {"text": "Daily active users reached 1 million", "metadata": {"category": "analytics"}},
-    {"text": "Customer satisfaction score is 4.5", "metadata": {"category": "feedback"}},
+    {
+        "text": "Daily active users reached 1 million",
+        "metadata": {"category": "analytics"},
+    },
+    {
+        "text": "Customer satisfaction score is 4.5",
+        "metadata": {"category": "feedback"},
+    },
 ]
 
 
@@ -54,8 +60,8 @@ class TestLangChainHybridRetriever:
     def test_search_with_vector_retriever(self):
         """Hybrid search returns results with correct keys."""
         from langchain_chroma import Chroma
-        from langchain_huggingface import HuggingFaceEmbeddings
         from langchain_core.documents import Document
+        from langchain_huggingface import HuggingFaceEmbeddings
 
         embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
         lc_docs = [Document(page_content=d["text"], metadata=d["metadata"]) for d in SAMPLE_DOCS]

@@ -4,7 +4,7 @@
       "command": "uv",
       "args": [
         "--directory",
-        "/Users/sylvester/Documents/MachineLearning/RAGLab",
+        "/RAGLab",
         "run",
         "mcp_server.py"
       ]

@@ -3,11 +3,13 @@ Utility functions for RAG system.
 Includes logging, error handling, token counting, and performance monitoring.
 """
 
+import functools
 import logging
 import time
-import functools
-from typing import Callable, Any, List, Dict
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
+
 import tiktoken
 
 
@@ -123,9 +125,7 @@ def count_tokens(text: str, model: str = "gpt-3.5-turbo") -> int:
     return len(_get_encoding(model).encode(text))
 
 
-def truncate_to_token_limit(
-    text: str, max_tokens: int, model: str = "gpt-3.5-turbo"
-) -> str:
+def truncate_to_token_limit(text: str, max_tokens: int, model: str = "gpt-3.5-turbo") -> str:
     """
     Truncate text to fit within a token limit.
 
@@ -157,7 +157,7 @@ def validate_file_exists(file_path: str) -> bool:
     return Path(file_path).exists()
 
 
-def format_context_for_llm(chunks: List[Dict[str, Any]]) -> str:
+def format_context_for_llm(chunks: list[dict[str, Any]]) -> str:
     """
     Format retrieved chunks into context string for LLM.
 
@@ -199,7 +199,7 @@ class PerformanceMonitor:
             return duration
         return None
 
-    def get_metrics(self) -> Dict[str, Any]:
+    def get_metrics(self) -> dict[str, Any]:
         """Get all recorded metrics."""
         return self.metrics
 

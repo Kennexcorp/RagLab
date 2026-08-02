@@ -10,7 +10,6 @@ from __future__ import annotations
 import os
 import tempfile
 from pathlib import Path
-from typing import List
 
 from langchain_core.documents import Document
 
@@ -39,9 +38,7 @@ class DocumentParser:
         suffix = Path(filename).suffix.lower()
 
         if suffix in {".csv", ".json"}:
-            raise ValueError(
-                f"Use DataLoader for {suffix.lstrip('.')} files, not DocumentParser."
-            )
+            raise ValueError(f"Use DataLoader for {suffix.lstrip('.')} files, not DocumentParser.")
         if suffix not in DocumentParser.SUPPORTED_EXTENSIONS:
             raise ValueError(
                 f"Unsupported file type: '{suffix}'. "
@@ -69,18 +66,21 @@ class DocumentParser:
         return text
 
     @staticmethod
-    def _load(file_path: str, suffix: str) -> List[Document]:
+    def _load(file_path: str, suffix: str) -> list[Document]:
         """Dispatch to the correct LangChain loader by file extension."""
         if suffix == ".pdf":
             from langchain_community.document_loaders import PyPDFLoader
+
             return PyPDFLoader(file_path).load()
 
         elif suffix == ".docx":
             from langchain_community.document_loaders import Docx2txtLoader
+
             return Docx2txtLoader(file_path).load()
 
         elif suffix in {".txt", ".md"}:
             from langchain_community.document_loaders import TextLoader
+
             # autodetect encoding; fall back to latin-1 if UTF-8 fails
             try:
                 return TextLoader(file_path, encoding="utf-8").load()

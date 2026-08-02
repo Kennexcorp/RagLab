@@ -10,20 +10,19 @@ from __future__ import annotations
 
 import os
 import sys
-import time
 import tempfile
+import time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
 import streamlit as st
 
-from rag_system import RAGSystem
-from document_parser import DocumentParser
-from config import Config
 from chunking import STRATEGIES, STRATEGY_INFO
+from config import Config
+from document_parser import DocumentParser
+from rag_system import RAGSystem
 from retriever import RETRIEVAL_STRATEGIES, RETRIEVAL_STRATEGY_INFO
-
 
 # ---------------------------------------------------------------------------
 # Provider → sensible model defaults
@@ -126,7 +125,9 @@ def render_sidebar(rag: RAGSystem) -> None:
         _all = rag.list_collections()
         _default = Config.COLLECTION_NAME
         _others = sorted(c for c in _all if c != _default)
-        collections = [_default] + _others if _default in _all else ([_default] + _others or [_default])
+        collections = (
+            [_default] + _others if _default in _all else ([_default] + _others or [_default])
+        )
 
         if st.session_state["collection"] not in collections:
             collections.append(st.session_state["collection"])
@@ -157,7 +158,10 @@ def render_sidebar(rag: RAGSystem) -> None:
                 st.rerun()
 
         with st.expander("Clear collection", expanded=False):
-            st.warning(f"Remove all documents from **{st.session_state['collection']}**? The collection itself will be kept.")
+            st.warning(
+                f"Remove all documents from **{st.session_state['collection']}**? "
+                "The collection itself will be kept."
+            )
             confirmed_clear = st.checkbox("I understand, clear all documents", key="_clear_confirm")
             if st.button("Clear", key="_clear_col", disabled=not confirmed_clear):
                 try:
@@ -212,14 +216,18 @@ def render_sidebar(rag: RAGSystem) -> None:
 
             st.session_state["temperature"] = st.slider(
                 "Temperature",
-                min_value=0.0, max_value=1.0,
-                value=st.session_state["temperature"], step=0.05,
+                min_value=0.0,
+                max_value=1.0,
+                value=st.session_state["temperature"],
+                step=0.05,
             )
             st.caption("Lower = more precise/factual. Higher = more creative/varied.")
 
         # ---- System Prompt ----
         with st.expander("System Prompt", expanded=False):
-            st.caption("Customise how the assistant responds. Changes take effect on the next query.")
+            st.caption(
+                "Customise how the assistant responds. Changes take effect on the next query."
+            )
             st.session_state["system_prompt"] = st.text_area(
                 "Prompt",
                 value=st.session_state["system_prompt"],
@@ -233,11 +241,16 @@ def render_sidebar(rag: RAGSystem) -> None:
 
         # ---- Active retrieval settings (read-only — configured in Retrieval tab) ----
         _active_strategy = st.session_state["retrieval_strategy"]
-        _active_label = RETRIEVAL_STRATEGY_INFO.get(_active_strategy, {}).get("label", _active_strategy)
+        _active_label = RETRIEVAL_STRATEGY_INFO.get(_active_strategy, {}).get(
+            "label", _active_strategy
+        )
+        _active_threshold = st.session_state.get(
+            "ret_tab_similarity_threshold", Config.SIMILARITY_THRESHOLD
+        )
         st.caption(
             f"**Retrieval:** {_active_label}  \n"
             f"Top K: {st.session_state['top_k_default']} · "
-            f"Threshold: {st.session_state.get('ret_tab_similarity_threshold', Config.SIMILARITY_THRESHOLD):.2f}  \n"
+            f"Threshold: {_active_threshold:.2f}  \n"
             f"*Configure in the Retrieval tab.*"
         )
 
@@ -269,7 +282,8 @@ def render_sidebar(rag: RAGSystem) -> None:
             key="_show_trace_toggle",
             help=(
                 "After each chat response, show a collapsible trace of the full RAG pipeline: "
-                "query rewriting, retrieved chunks, the exact prompt sent to the LLM, and generation stats."
+                "query rewriting, retrieved chunks, the exact prompt sent to the LLM, "
+                "and generation stats."
             ),
         )
 
@@ -302,9 +316,15 @@ def render_upload_tab(rag: RAGSystem) -> None:
         default_source = uploaded_file.name if uploaded_file else ""
 
         with col1:
-            title = st.text_input("Title *", value=default_title, placeholder="e.g. Q4 Financial Report 2025")
+            title = st.text_input(
+                "Title *",
+                value=default_title,
+                placeholder="e.g. Q4 Financial Report 2025",
+            )
             category = st.text_input("Category *", placeholder="e.g. Finance, HR, Legal, Technical")
-            source = st.text_input("Source", value=default_source, placeholder="e.g. Internal Audit Team")
+            source = st.text_input(
+                "Source", value=default_source, placeholder="e.g. Internal Audit Team"
+            )
 
         with col2:
             author = st.text_input("Author", placeholder="e.g. Jane Smith")
@@ -315,7 +335,9 @@ def render_upload_tab(rag: RAGSystem) -> None:
                 height=122,
             )
 
-        submitted = st.form_submit_button("Ingest Document", type="primary", use_container_width=True)
+        submitted = st.form_submit_button(
+            "Ingest Document", type="primary", use_container_width=True
+        )
 
     if submitted:
         _handle_upload(
@@ -418,8 +440,9 @@ def render_chunk_tab() -> None:
     st.header("Chunking Visualizer")
     st.caption(
         "Experiment with chunking settings and see exactly how your text will be split — "
-        "nothing is stored. These controls are independent of the ingestion settings in the sidebar. "
-        "After uploading a document, the text area below auto-populates with that document's text."
+        "nothing is stored. These controls are independent of the ingestion settings in the "
+        "sidebar. After uploading a document, the text area below auto-populates with that "
+        "document's text."
     )
 
     # ---- Controls ----
@@ -427,7 +450,8 @@ def render_chunk_tab() -> None:
     with col_a:
         chunk_size = st.slider(
             "Chunk size (chars)",
-            min_value=100, max_value=4000,
+            min_value=100,
+            max_value=4000,
             value=st.session_state["chunk_tab_size"],
             step=50,
             key="_ctab_size",
@@ -436,7 +460,8 @@ def render_chunk_tab() -> None:
     with col_b:
         chunk_overlap = st.slider(
             "Overlap (chars)",
-            min_value=0, max_value=500,
+            min_value=0,
+            max_value=500,
             value=st.session_state["chunk_tab_overlap"],
             step=10,
             key="_ctab_overlap",
@@ -466,17 +491,26 @@ def render_chunk_tab() -> None:
     st.session_state["chunking_preview_text"] = preview_text
 
     col_btn, col_default = st.columns([3, 1])
-    run_preview = col_btn.button("Preview Chunks", type="primary", key="_preview_chunks", use_container_width=True)
+    run_preview = col_btn.button(
+        "Preview Chunks",
+        type="primary",
+        key="_preview_chunks",
+        use_container_width=True,
+    )
     if col_default.button("Set as Default", key="_chunk_set_default", use_container_width=True):
         st.session_state["chunk_size"] = chunk_size
         st.session_state["chunk_overlap"] = chunk_overlap
         st.session_state["chunk_strategy"] = strategy
-        _save_to_env({
-            "CHUNK_SIZE": chunk_size,
-            "CHUNK_OVERLAP": chunk_overlap,
-            "CHUNKING_STRATEGY": strategy,
-        })
-        st.success(f"Defaults saved — size {chunk_size}, overlap {chunk_overlap}, strategy {strategy}.")
+        _save_to_env(
+            {
+                "CHUNK_SIZE": chunk_size,
+                "CHUNK_OVERLAP": chunk_overlap,
+                "CHUNKING_STRATEGY": strategy,
+            }
+        )
+        st.success(
+            f"Defaults saved — size {chunk_size}, overlap {chunk_overlap}, strategy {strategy}."
+        )
 
     if run_preview:
         if not preview_text.strip():
@@ -511,16 +545,17 @@ def render_chunk_tab() -> None:
                 badge = (
                     f'<span style="font-size:0.74em;background:#444;color:#fff;'
                     f'border-radius:4px;padding:2px 7px;display:inline-block;margin-bottom:5px;">'
-                    f'Chunk {i + 1} &nbsp;·&nbsp; {char_count} chars &nbsp;·&nbsp; ~{token_count} tokens'
-                    f'</span>'
+                    f"Chunk {i + 1} &nbsp;·&nbsp; {char_count} chars "
+                    f"&nbsp;·&nbsp; ~{token_count} tokens"
+                    f"</span>"
                 )
                 block = (
                     f'<div style="background:{color};border-radius:6px;'
                     f'padding:10px 14px;margin-bottom:8px;color:#1a1a1a;">'
-                    f'{badge}<br/>'
+                    f"{badge}<br/>"
                     f'<pre style="white-space:pre-wrap;font-size:0.82em;margin:5px 0 0 0;'
                     f'font-family:monospace;color:#1a1a1a;">{body}</pre>'
-                    f'</div>'
+                    f"</div>"
                 )
                 html_parts.append(block)
 
@@ -579,7 +614,6 @@ def _render_sources(
 def _render_pipeline_trace(trace: dict) -> None:
     """Render the collapsible RAG pipeline trace for one assistant turn."""
     with st.expander("🔍 Pipeline Trace", expanded=False):
-
         # Stage 1: Query
         st.markdown("**Stage 1 · Query**")
         orig = trace.get("original_question", "")
@@ -654,13 +688,17 @@ def render_chat_tab(rag: RAGSystem) -> None:
     _chunk_strat = st.session_state["chunk_strategy"]
     _chunk_label = STRATEGY_INFO.get(_chunk_strat, {}).get("label", _chunk_strat)
 
+    _ret_threshold = st.session_state.get(
+        "ret_tab_similarity_threshold", Config.SIMILARITY_THRESHOLD
+    )
+
     st.header("Query")
     st.caption(
         f"Collection: **{collection}** · "
         f"LLM: **{st.session_state['llm_provider']} / {st.session_state['llm_model']}**  \n"
         f"Retrieval: **{_ret_label}** · "
         f"Top K: **{st.session_state['top_k_default']}** · "
-        f"Threshold: **{st.session_state.get('ret_tab_similarity_threshold', Config.SIMILARITY_THRESHOLD):.2f}**  \n"
+        f"Threshold: **{_ret_threshold:.2f}**  \n"
         f"Chunking: **{_chunk_label}** · "
         f"Size: **{st.session_state['chunk_size']}** · "
         f"Overlap: **{st.session_state['chunk_overlap']}**"
@@ -756,6 +794,7 @@ def render_chat_tab(rag: RAGSystem) -> None:
 def _build_generator_for_comparison():
     """Build a Generator using the current session LLM settings."""
     from generator import Generator
+
     return Generator(
         provider=st.session_state["llm_provider"],
         model=st.session_state["llm_model"],
@@ -776,7 +815,7 @@ def _render_compare_card(col, strategy: str, result: dict) -> None:
     with col:
         with st.container(border=True):
             st.markdown(f"**{label}**")
-            st.caption(f"{elapsed:.0f} ms · {desc}")
+            st.caption(f"{elapsed:.0f} ms · {desc_short}")
 
             error = result.get("error")
             if error:
@@ -793,9 +832,7 @@ def _render_compare_card(col, strategy: str, result: dict) -> None:
                     meta = chunk.get("metadata", {})
                     src = meta.get("title") or meta.get("source", "unknown")
                     preview = chunk.get("text", "")[:110]
-                    st.markdown(
-                        f"**#{i}** `{src}` · score `{score_str}`  \n_{preview}_"
-                    )
+                    st.markdown(f"**#{i}** `{src}` · score `{score_str}`  \n_{preview}_")
 
             if result.get("llm_answer"):
                 st.divider()
@@ -808,8 +845,8 @@ def render_compare_tab(rag: RAGSystem) -> None:
 
     st.header("Retrieval")
     st.caption(
-        "Configure your retrieval strategy and parameters, then run a comparison across all 8 strategies "
-        "to validate your choices. Use **Set as Default** to apply settings to Chat."
+        "Configure your retrieval strategy and parameters, then run a comparison across all "
+        "8 strategies to validate your choices. Use **Set as Default** to apply settings to Chat."
     )
     st.info(
         "Multi-Query, HyDE, and Self-Query use the LLM configured in `.env` for retrieval-time "
@@ -822,7 +859,8 @@ def render_compare_tab(rag: RAGSystem) -> None:
         "Chat strategy",
         options=RETRIEVAL_STRATEGIES,
         index=RETRIEVAL_STRATEGIES.index(st.session_state["ret_tab_strategy"])
-              if st.session_state["ret_tab_strategy"] in RETRIEVAL_STRATEGIES else 0,
+        if st.session_state["ret_tab_strategy"] in RETRIEVAL_STRATEGIES
+        else 0,
         format_func=lambda s: RETRIEVAL_STRATEGY_INFO[s]["label"],
         key="_ret_strategy_select",
         help="The strategy Chat will use when answering questions.",
@@ -839,7 +877,8 @@ def render_compare_tab(rag: RAGSystem) -> None:
     with col_a:
         ret_top_k = st.slider(
             "Top K results",
-            min_value=1, max_value=20,
+            min_value=1,
+            max_value=20,
             value=st.session_state["ret_tab_top_k"],
             step=1,
             key="_ret_top_k",
@@ -849,7 +888,8 @@ def render_compare_tab(rag: RAGSystem) -> None:
     with col_b:
         ret_semantic_weight = st.slider(
             "Semantic weight (hybrid)",
-            min_value=0.0, max_value=1.0,
+            min_value=0.0,
+            max_value=1.0,
             value=st.session_state["ret_tab_semantic_weight"],
             step=0.05,
             key="_ret_sem_weight",
@@ -859,7 +899,8 @@ def render_compare_tab(rag: RAGSystem) -> None:
     with col_c:
         ret_threshold = st.slider(
             "Similarity threshold",
-            min_value=0.0, max_value=1.0,
+            min_value=0.0,
+            max_value=1.0,
             value=st.session_state["ret_tab_similarity_threshold"],
             step=0.05,
             key="_ret_threshold",
@@ -874,13 +915,15 @@ def render_compare_tab(rag: RAGSystem) -> None:
         st.session_state["retrieval_strategy"] = ret_strategy
         _, _ret = rag._get_or_create_collection(collection)
         _ret.similarity_threshold = ret_threshold
-        _save_to_env({
-            "TOP_K_RESULTS": ret_top_k,
-            "SEMANTIC_WEIGHT": ret_semantic_weight,
-            "KEYWORD_WEIGHT": round(1.0 - ret_semantic_weight, 4),
-            "SIMILARITY_THRESHOLD": ret_threshold,
-            "RETRIEVAL_STRATEGY": ret_strategy,
-        })
+        _save_to_env(
+            {
+                "TOP_K_RESULTS": ret_top_k,
+                "SEMANTIC_WEIGHT": ret_semantic_weight,
+                "KEYWORD_WEIGHT": round(1.0 - ret_semantic_weight, 4),
+                "SIMILARITY_THRESHOLD": ret_threshold,
+                "RETRIEVAL_STRATEGY": ret_strategy,
+            }
+        )
         col_default.success("Saved.")
 
     st.divider()
@@ -897,7 +940,9 @@ def render_compare_tab(rag: RAGSystem) -> None:
         key="_compare_include_llm",
     )
 
-    if col_run.button("Run Comparison", type="primary", key="_run_compare", use_container_width=True):
+    if col_run.button(
+        "Run Comparison", type="primary", key="_run_compare", use_container_width=True
+    ):
         if not query.strip():
             st.warning("Enter a query first.")
             st.stop()
@@ -929,6 +974,7 @@ def render_compare_tab(rag: RAGSystem) -> None:
                 if include_llm and chunks:
                     try:
                         from utils import format_context_for_llm
+
                         ctx = format_context_for_llm(chunks)
                         gen = _build_generator_for_comparison()
                         gen_resp = gen.generate(query, ctx)
@@ -960,9 +1006,9 @@ def render_compare_tab(rag: RAGSystem) -> None:
 
     strategy_list = list(results.keys())
     for row_start in range(0, len(strategy_list), 2):
-        pair = strategy_list[row_start:row_start + 2]
+        pair = strategy_list[row_start : row_start + 2]
         cols = st.columns(len(pair))
-        for col, strat in zip(cols, pair):
+        for col, strat in zip(cols, pair, strict=True):
             _render_compare_card(col, strat, results[strat])
 
 
@@ -984,8 +1030,8 @@ def _compute_umap(
     recomputes automatically whenever any of these change.
     """
     try:
-        import umap as umap_lib
         import numpy as np
+        import umap as umap_lib
     except ImportError:
         return None
 
@@ -1014,7 +1060,8 @@ def _compute_umap(
     # Cap n_neighbors to avoid UMAP error on small collections
     effective_n_neighbors = min(n_neighbors, len(emb_array) - 1)
     reducer = umap_lib.UMAP(
-        n_components=2, random_state=42,
+        n_components=2,
+        random_state=42,
         n_neighbors=effective_n_neighbors,
         min_dist=min_dist,
     )
@@ -1031,11 +1078,14 @@ def _compute_umap(
 
 def render_explore_tab(rag: RAGSystem) -> None:
     try:
-        import plotly.express as px
         import numpy as np
         import pandas as pd
+        import plotly.express as px
     except ImportError:
-        st.error("This tab requires `umap-learn` and `plotly`. Run `pip install umap-learn plotly` and restart.")
+        st.error(
+            "This tab requires `umap-learn` and `plotly`. "
+            "Run `pip install umap-learn plotly` and restart."
+        )
         return
 
     collection = st.session_state["collection"]
@@ -1062,7 +1112,8 @@ def render_explore_tab(rag: RAGSystem) -> None:
     with col_a:
         n_neighbors = st.slider(
             "n_neighbors",
-            min_value=2, max_value=50,
+            min_value=2,
+            max_value=50,
             value=st.session_state["umap_n_neighbors"],
             step=1,
             key="_umap_n_neighbors",
@@ -1075,7 +1126,8 @@ def render_explore_tab(rag: RAGSystem) -> None:
     with col_b:
         min_dist = st.slider(
             "min_dist",
-            min_value=0.0, max_value=0.99,
+            min_value=0.0,
+            max_value=0.99,
             value=st.session_state["umap_min_dist"],
             step=0.05,
             key="_umap_min_dist",
@@ -1087,10 +1139,10 @@ def render_explore_tab(rag: RAGSystem) -> None:
         st.session_state["umap_min_dist"] = min_dist
     with col_c:
         st.info(
-            "**Chunking → Explore connection:** The projection is built from the embeddings currently "
-            "stored in ChromaDB. Changing chunk settings in the **Chunking** tab only updates the "
-            "preview — to see the effect here, re-ingest your documents with the new settings, "
-            "then click **Refresh Projection**.",
+            "**Chunking → Explore connection:** The projection is built from the embeddings "
+            "currently stored in ChromaDB. Changing chunk settings in the **Chunking** tab "
+            "only updates the preview — to see the effect here, re-ingest your documents "
+            "with the new settings, then click **Refresh Projection**.",
             icon="ℹ️",
         )
 
@@ -1105,8 +1157,7 @@ def render_explore_tab(rag: RAGSystem) -> None:
     umap_data = _compute_umap(collection, doc_count, n_neighbors=n_neighbors, min_dist=min_dist)
     if umap_data is None:
         st.error(
-            "UMAP computation failed — ensure `umap-learn` is installed: "
-            "`pip install umap-learn`"
+            "UMAP computation failed — ensure `umap-learn` is installed: `pip install umap-learn`"
         )
         return
 
@@ -1114,14 +1165,16 @@ def render_explore_tab(rag: RAGSystem) -> None:
     texts = umap_data["texts"]
     sources = umap_data["sources"]
 
-    df = pd.DataFrame({
-        "x": xy[:, 0],
-        "y": xy[:, 1],
-        "source": sources,
-        "text": texts,
-        "point_type": ["chunk"] * len(xy),
-        "size": [6] * len(xy),
-    })
+    df = pd.DataFrame(
+        {
+            "x": xy[:, 0],
+            "y": xy[:, 1],
+            "source": sources,
+            "text": texts,
+            "point_type": ["chunk"] * len(xy),
+            "size": [6] * len(xy),
+        }
+    )
 
     query = st.text_input(
         "Enter a query to project onto the map",
@@ -1148,13 +1201,16 @@ def render_explore_tab(rag: RAGSystem) -> None:
                 highlight_set = {i for i, t in enumerate(texts) if t in retrieved_texts}
 
                 query_label = f"Query: {query[:50]}{'…' if len(query) > 50 else ''}"
-                query_row = pd.DataFrame({
-                    "x": [query_xy[0]], "y": [query_xy[1]],
-                    "source": [query_label],
-                    "text": [query],
-                    "point_type": ["query"],
-                    "size": [14],
-                })
+                query_row = pd.DataFrame(
+                    {
+                        "x": [query_xy[0]],
+                        "y": [query_xy[1]],
+                        "source": [query_label],
+                        "text": [query],
+                        "point_type": ["query"],
+                        "size": [14],
+                    }
+                )
                 df = pd.concat([df, query_row], ignore_index=True)
             except Exception as exc:
                 st.warning(f"Could not project query: {exc}")
@@ -1164,9 +1220,17 @@ def render_explore_tab(rag: RAGSystem) -> None:
     color_map = {query_label: "#FF2B2B"} if query_label else {}
 
     fig = px.scatter(
-        df, x="x", y="y",
+        df,
+        x="x",
+        y="y",
         color="source",
-        hover_data={"text": True, "x": False, "y": False, "size": False, "point_type": False},
+        hover_data={
+            "text": True,
+            "x": False,
+            "y": False,
+            "size": False,
+            "point_type": False,
+        },
         color_discrete_map=color_map,
         title=f"Embedding Space — {collection}",
         height=580,
@@ -1184,7 +1248,13 @@ def render_explore_tab(rag: RAGSystem) -> None:
             x=xy[hi_idx, 0],
             y=xy[hi_idx, 1],
             mode="markers",
-            marker=dict(size=14, color="#00C853", symbol="star", line=dict(width=1, color="#007A33"), opacity=1.0),
+            marker=dict(
+                size=14,
+                color="#00C853",
+                symbol="star",
+                line=dict(width=1, color="#007A33"),
+                opacity=1.0,
+            ),
             name="Retrieved",
             hovertext=[texts[i] for i in hi_idx],
             hoverinfo="text",
@@ -1227,9 +1297,15 @@ def main() -> None:
 
     render_sidebar(rag)
 
-    tab_upload, tab_chat, tab_compare, tab_chunk, tab_explore = st.tabs([
-        "Upload Documents", "Query", "Retrieval", "Chunking", "Explore",
-    ])
+    tab_upload, tab_chat, tab_compare, tab_chunk, tab_explore = st.tabs(
+        [
+            "Upload Documents",
+            "Query",
+            "Retrieval",
+            "Chunking",
+            "Explore",
+        ]
+    )
 
     with tab_upload:
         render_upload_tab(rag)

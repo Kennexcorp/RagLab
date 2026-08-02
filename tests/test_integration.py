@@ -2,8 +2,10 @@
 Integration tests for the complete RAG system.
 """
 
-import pytest
 import os
+
+import pytest
+
 from rag_system import RAGSystem
 
 
@@ -46,9 +48,7 @@ class TestRAGSystemIntegration:
 
         # Verify data is in vector store
         stats = self.rag.get_stats()
-        assert (
-            stats["vector_store"]["document_count"] > 0
-        ), "Should have documents in store"
+        assert stats["vector_store"]["document_count"] > 0, "Should have documents in store"
 
     @pytest.mark.skipif(
         not os.getenv("OPENAI_API_KEY") and not os.getenv("ANTHROPIC_API_KEY"),

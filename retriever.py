@@ -6,24 +6,31 @@ Supports eight interchangeable retrieval strategies.
 
 import os
 from pathlib import Path
-from typing import List, Dict, Any, Optional
+from typing import Any
 
 # langchain_community v0.4+ removed several vectorstore classes that langchain_classic's
 # SelfQueryRetriever still tries to import. Stub them all out so imports never fail.
 import langchain_community.vectorstores as _lcvs
+
 for _cls in [
-    "DatabricksVectorSearch", "DeepLake", "Milvus", "Neo4jVector",
-    "Qdrant", "Weaviate", "MongoDBAtlasVectorSearch", "TencentVectorDb", "Pinecone",
+    "DatabricksVectorSearch",
+    "DeepLake",
+    "Milvus",
+    "Neo4jVector",
+    "Qdrant",
+    "Weaviate",
+    "MongoDBAtlasVectorSearch",
+    "TencentVectorDb",
+    "Pinecone",
 ]:
     if not hasattr(_lcvs, _cls):
         setattr(_lcvs, _cls, type(_cls, (), {}))
 del _cls
 
-from config import Config
-from vector_store import VectorStore
-from hybrid_search import LangChainHybridRetriever
-from utils import setup_logging, timer, format_context_for_llm, count_tokens
-
+from config import Config  # noqa: E402
+from hybrid_search import LangChainHybridRetriever  # noqa: E402
+from utils import count_tokens, format_context_for_llm, setup_logging, timer  # noqa: E402
+from vector_store import VectorStore  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Strategy registry (mirrors chunking.py's STRATEGIES / STRATEGY_INFO)
@@ -40,7 +47,7 @@ RETRIEVAL_STRATEGIES = [
     "parent-child",
 ]
 
-RETRIEVAL_STRATEGY_INFO: Dict[str, Dict[str, str]] = {
+RETRIEVAL_STRATEGY_INFO: dict[str, dict[str, str]] = {
     "semantic": {
         "label": "Semantic (Default)",
         "description": (
@@ -149,7 +156,7 @@ class Retriever:
     # Hybrid index management (unchanged)
     # ------------------------------------------------------------------
 
-    def fit_hybrid_search(self, documents: List[Dict[str, Any]]):
+    def fit_hybrid_search(self, documents: list[dict[str, Any]]):
         if self.use_hybrid and self.hybrid_retriever:
             self.hybrid_retriever.fit(documents)
             self.save_hybrid_index()
@@ -175,12 +182,15 @@ class Retriever:
 
         if provider == "openai":
             from langchain_openai import ChatOpenAI
+
             return ChatOpenAI(model=model, temperature=0, api_key=api_key)
         elif provider == "anthropic":
             from langchain_anthropic import ChatAnthropic
+
             return ChatAnthropic(model=model, temperature=0, api_key=api_key)
         elif provider == "ollama":
             from langchain_ollama import ChatOllama
+
             return ChatOllama(model=model, temperature=0)
         else:
             raise ValueError(f"Unsupported provider for retrieval LLM: {provider}")
@@ -193,8 +203,8 @@ class Retriever:
         self,
         query: str,
         top_k: int,
-        metadata_filter: Optional[Dict[str, Any]] = None,
-    ) -> List[Dict[str, Any]]:
+        metadata_filter: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
         semantic_results = self.vector_store.search(
             query=query, top_k=top_k, metadata_filter=metadata_filter
         )
@@ -205,7 +215,7 @@ class Retriever:
             # (sentence-transformers always normalises), the cosine similarity
             # is: cos_sim = 1 - d² / 2  (derived from ||a-b||² = 2 - 2·cos).
             # Clamp to [0, 1] to handle tiny floating-point overshoots.
-            similarity = max(0.0, min(1.0, 1.0 - (distance ** 2) / 2.0))
+            similarity = max(0.0, min(1.0, 1.0 - (distance**2) / 2.0))
             result["similarity_score"] = similarity
             if similarity >= self.similarity_threshold:
                 results.append(result)
@@ -213,7 +223,7 @@ class Retriever:
 
     def _retrieve_hybrid(
         self, query: str, top_k: int, semantic_weight: float = None
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         if not (self.hybrid_retriever and self.hybrid_retriever.is_fitted):
             self.logger.warning("Hybrid retriever not fitted — falling back to semantic")
             return self._retrieve_semantic(query, top_k)
@@ -228,7 +238,7 @@ class Retriever:
             result["similarity_score"] = 1.0 / (i + 1)
         return results
 
-    def _retrieve_mmr(self, query: str, top_k: int) -> List[Dict[str, Any]]:
+    def _retrieve_mmr(self, query: str, top_k: int) -> list[dict[str, Any]]:
         retriever = self.vector_store.as_retriever(k=top_k, search_type="mmr")
         docs = retriever.invoke(query)
         return [
@@ -240,7 +250,7 @@ class Retriever:
             for i, doc in enumerate(docs)
         ]
 
-    def _retrieve_multi_query(self, query: str, top_k: int) -> List[Dict[str, Any]]:
+    def _retrieve_multi_query(self, query: str, top_k: int) -> list[dict[str, Any]]:
         from langchain_classic.retrievers.multi_query import MultiQueryRetriever
 
         base_retriever = self.vector_store.as_retriever(k=top_k)
@@ -256,7 +266,7 @@ class Retriever:
             for i, doc in enumerate(docs[:top_k])
         ]
 
-    def _retrieve_reranking(self, query: str, top_k: int) -> List[Dict[str, Any]]:
+    def _retrieve_reranking(self, query: str, top_k: int) -> list[dict[str, Any]]:
         try:
             from sentence_transformers import CrossEncoder
         except ImportError as e:
@@ -267,10 +277,7 @@ class Retriever:
         # Bypass the similarity threshold — fetch raw candidates directly from the
         # vector store so the cross-encoder has a full pool to rerank.
         raw = self.vector_store.search(query=query, top_k=top_k * 3)
-        candidates = [
-            {**doc, "similarity_score": 1 / (1 + doc.get("distance", 0))}
-            for doc in raw
-        ]
+        candidates = [{**doc, "similarity_score": 1 / (1 + doc.get("distance", 0))} for doc in raw]
         if not candidates:
             return []
 
@@ -278,27 +285,26 @@ class Retriever:
         pairs = [(query, doc["text"]) for doc in candidates]
         scores = ce_model.predict(pairs)
 
-        ranked = sorted(
-            zip(candidates, scores), key=lambda x: x[1], reverse=True
-        )[:top_k]
-        return [
-            {**doc, "similarity_score": float(score)}
-            for doc, score in ranked
+        ranked = sorted(zip(candidates, scores, strict=True), key=lambda x: x[1], reverse=True)[
+            :top_k
         ]
+        return [{**doc, "similarity_score": float(score)} for doc, score in ranked]
 
-    def _retrieve_hyde(self, query: str, top_k: int) -> List[Dict[str, Any]]:
+    def _retrieve_hyde(self, query: str, top_k: int) -> list[dict[str, Any]]:
         from langchain_core.prompts import ChatPromptTemplate
 
         llm = self._build_llm()
-        hyde_prompt = ChatPromptTemplate.from_messages([
-            (
-                "system",
-                "You are a helpful assistant. Write a short hypothetical document passage "
-                "that would directly answer the following question. "
-                "Write only the passage, no preamble.",
-            ),
-            ("human", "{question}"),
-        ])
+        hyde_prompt = ChatPromptTemplate.from_messages(
+            [
+                (
+                    "system",
+                    "You are a helpful assistant. Write a short hypothetical document passage "
+                    "that would directly answer the following question. "
+                    "Write only the passage, no preamble.",
+                ),
+                ("human", "{question}"),
+            ]
+        )
         chain = hyde_prompt | llm
         hypothetical_doc = chain.invoke({"question": query}).content
         self.logger.debug(f"HyDE hypothetical doc: {hypothetical_doc[:100]}…")
@@ -306,15 +312,13 @@ class Retriever:
         # Search using the hypothetical document text, bypassing the similarity threshold —
         # the hypothetical embedding sits further from real docs by design.
         raw = self.vector_store.search(query=hypothetical_doc, top_k=top_k)
-        return [
-            {**doc, "similarity_score": 1 / (1 + doc.get("distance", 0))}
-            for doc in raw
-        ]
+        return [{**doc, "similarity_score": 1 / (1 + doc.get("distance", 0))} for doc in raw]
 
-    def _retrieve_self_query(self, query: str, top_k: int) -> List[Dict[str, Any]]:
+    def _retrieve_self_query(self, query: str, top_k: int) -> list[dict[str, Any]]:
         try:
-            from langchain_classic.retrievers.self_query.base import SelfQueryRetriever
             from langchain_classic.chains.query_constructor.schema import AttributeInfo
+            from langchain_classic.retrievers.self_query.base import SelfQueryRetriever
+
             # Pass ChromaTranslator explicitly — avoids langchain_classic's _get_builtin_translator
             # which tries to import optional vectorstores (e.g. DatabricksVectorSearch) that may
             # not be present in the installed langchain_community version.
@@ -325,10 +329,22 @@ class Retriever:
 
         metadata_field_info = [
             AttributeInfo(name="title", description="Title of the document", type="string"),
-            AttributeInfo(name="category", description="Category or topic of the document", type="string"),
-            AttributeInfo(name="source", description="Source or filename of the document", type="string"),
+            AttributeInfo(
+                name="category",
+                description="Category or topic of the document",
+                type="string",
+            ),
+            AttributeInfo(
+                name="source",
+                description="Source or filename of the document",
+                type="string",
+            ),
             AttributeInfo(name="author", description="Author of the document", type="string"),
-            AttributeInfo(name="tags", description="Comma-separated tags for the document", type="string"),
+            AttributeInfo(
+                name="tags",
+                description="Comma-separated tags for the document",
+                type="string",
+            ),
         ]
         llm = self._build_llm()
         try:
@@ -353,8 +369,10 @@ class Retriever:
             for i, doc in enumerate(docs[:top_k])
         ]
 
-    def _retrieve_parent_child(self, query: str, top_k: int) -> List[Dict[str, Any]]:
-        from langchain_classic.retrievers.parent_document_retriever import ParentDocumentRetriever
+    def _retrieve_parent_child(self, query: str, top_k: int) -> list[dict[str, Any]]:
+        from langchain_classic.retrievers.parent_document_retriever import (
+            ParentDocumentRetriever,
+        )
         from langchain_classic.storage import LocalFileStore
         from langchain_classic.storage._lc_store import create_kv_docstore
         from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -406,10 +424,10 @@ class Retriever:
         self,
         query: str,
         top_k: int = None,
-        metadata_filter: Optional[Dict[str, Any]] = None,
+        metadata_filter: dict[str, Any] | None = None,
         strategy: str = None,
         semantic_weight: float = None,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Retrieve relevant documents for a query using the selected strategy.
 
@@ -454,7 +472,7 @@ class Retriever:
         top_k: int = None,
         strategy: str = None,
         semantic_weight: float = None,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """
         Build context for LLM generation.
 
@@ -480,7 +498,8 @@ class Retriever:
         context_tokens = count_tokens(context)
         if context_tokens > self.max_context_length:
             self.logger.warning(
-                f"Context too long ({context_tokens} tokens), truncating to {self.max_context_length}"
+                f"Context too long ({context_tokens} tokens), "
+                f"truncating to {self.max_context_length}"
             )
             while context_tokens > self.max_context_length and len(documents) > 1:
                 documents.pop()
@@ -495,8 +514,8 @@ class Retriever:
         }
 
     def retrieve_by_metadata(
-        self, metadata_filter: Dict[str, Any], top_k: int = None
-    ) -> List[Dict[str, Any]]:
+        self, metadata_filter: dict[str, Any], top_k: int = None
+    ) -> list[dict[str, Any]]:
         top_k = top_k or self.top_k
         self.logger.info(f"Retrieving by metadata: {metadata_filter}")
         return self.vector_store.get_by_metadata(metadata_filter, top_k=top_k)

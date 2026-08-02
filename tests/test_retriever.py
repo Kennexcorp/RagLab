@@ -3,8 +3,9 @@ Unit tests for retriever module.
 """
 
 import pytest
-from vector_store import VectorStore
+
 from retriever import Retriever
+from vector_store import VectorStore
 
 
 class TestRetriever:
@@ -55,9 +56,7 @@ class TestRetriever:
         results = self.retriever.retrieve("revenue", top_k=5)
 
         # All results should have similarity scores
-        assert all(
-            "similarity_score" in r for r in results
-        ), "Should have similarity scores"
+        assert all("similarity_score" in r for r in results), "Should have similarity scores"
 
     def test_build_context(self):
         """Test context building for LLM."""
@@ -77,9 +76,7 @@ class TestRetriever:
             [{"text": "Completely unrelated content about weather", "metadata": {}}]
         )
 
-        context_data = self.retriever.build_context(
-            "quantum physics equations", top_k=5
-        )
+        context_data = self.retriever.build_context("quantum physics equations", top_k=5)
 
         # Should still return something, but might be low quality
         assert "context" in context_data

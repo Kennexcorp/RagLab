@@ -5,15 +5,16 @@ Exposes document ingestion, querying, and collection management as MCP tools.
 """
 
 import asyncio
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
+
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
-from mcp.types import Tool, TextContent
+from mcp.types import TextContent, Tool
 
-from rag_system import RAGSystem
 from config import Config
+from rag_system import RAGSystem
 from utils import setup_logging
-
 
 logger = setup_logging("INFO")
 rag_system = RAGSystem(log_level="INFO")
@@ -106,7 +107,8 @@ async def list_tools() -> list[Tool]:
             name="query",
             description=(
                 "Query the knowledge base using natural language. "
-                "Retrieves relevant context and returns an AI-generated answer with source citations."
+                "Retrieves relevant context and returns an AI-generated answer with "
+                "source citations."
             ),
             inputSchema={
                 "type": "object",
@@ -188,7 +190,9 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="clear_collection",
-            description="Remove all documents from a collection without deleting the collection itself.",
+            description=(
+                "Remove all documents from a collection without deleting the collection itself."
+            ),
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -202,7 +206,9 @@ async def list_tools() -> list[Tool]:
         ),
         Tool(
             name="get_system_stats",
-            description="Get overall system statistics including configuration and default collection info.",
+            description=(
+                "Get overall system statistics including configuration and default collection info."
+            ),
             inputSchema={"type": "object", "properties": {}},
         ),
     ]
@@ -220,10 +226,16 @@ async def call_tool(name: str, arguments: Any) -> Sequence[TextContent]:
             num_chunks = rag_system.ingest_data(
                 source=file_path, source_type=source_type, collection_name=col
             )
-            return [TextContent(
-                type="text",
-                text=f"Ingested {num_chunks} chunks from '{file_path}' into collection '{col or Config.COLLECTION_NAME}'.",
-            )]
+            target_collection = col or Config.COLLECTION_NAME
+            return [
+                TextContent(
+                    type="text",
+                    text=(
+                        f"Ingested {num_chunks} chunks from '{file_path}' "
+                        f"into collection '{target_collection}'."
+                    ),
+                )
+            ]
 
         elif name == "ingest_document":
             num_chunks = rag_system.ingest_document_with_metadata(
@@ -236,10 +248,16 @@ async def call_tool(name: str, arguments: Any) -> Sequence[TextContent]:
                 author=arguments.get("author", ""),
                 collection_name=col,
             )
-            return [TextContent(
-                type="text",
-                text=f"Ingested '{arguments.get('title')}': {num_chunks} chunks stored in '{col or Config.COLLECTION_NAME}'.",
-            )]
+            target_collection = col or Config.COLLECTION_NAME
+            return [
+                TextContent(
+                    type="text",
+                    text=(
+                        f"Ingested '{arguments.get('title')}': {num_chunks} chunks "
+                        f"stored in '{target_collection}'."
+                    ),
+                )
+            ]
 
         elif name == "query":
             question = arguments.get("question")
@@ -279,7 +297,12 @@ async def call_tool(name: str, arguments: Any) -> Sequence[TextContent]:
         elif name == "list_collections":
             collections = rag_system.list_collections()
             if collections:
-                return [TextContent(type="text", text="Collections:\n" + "\n".join(f"  - {c}" for c in collections))]
+                return [
+                    TextContent(
+                        type="text",
+                        text="Collections:\n" + "\n".join(f"  - {c}" for c in collections),
+                    )
+                ]
             return [TextContent(type="text", text="No collections found.")]
 
         elif name == "get_collection_stats":
@@ -298,7 +321,12 @@ async def call_tool(name: str, arguments: Any) -> Sequence[TextContent]:
 
         elif name == "clear_collection":
             rag_system.clear_data(collection_name=col)
-            return [TextContent(type="text", text=f"Collection '{col or Config.COLLECTION_NAME}' cleared.")]
+            return [
+                TextContent(
+                    type="text",
+                    text=f"Collection '{col or Config.COLLECTION_NAME}' cleared.",
+                )
+            ]
 
         elif name == "get_system_stats":
             stats = rag_system.get_stats()

@@ -4,15 +4,14 @@ Uses LangChain's Chroma integration and HuggingFaceEmbeddings for simplified
 embedding generation and vector database operations.
 """
 
-import logging
-from typing import List, Dict, Any, Optional
+from typing import Any
 
 from langchain_chroma import Chroma
-from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_core.documents import Document
+from langchain_huggingface import HuggingFaceEmbeddings
 
 from config import Config
-from utils import setup_logging, timer, retry_on_error
+from utils import retry_on_error, setup_logging, timer
 
 
 class VectorStore:
@@ -50,12 +49,10 @@ class VectorStore:
             persist_directory=self.persist_directory,
         )
 
-        self.logger.info(
-            f"Vector store initialized with collection: {self.collection_name}"
-        )
+        self.logger.info(f"Vector store initialized with collection: {self.collection_name}")
 
     @retry_on_error(max_retries=3, delay=1.0)
-    def add_documents(self, documents: List[Dict[str, Any]]) -> None:
+    def add_documents(self, documents: list[dict[str, Any]]) -> None:
         """
         Add documents to the vector store.
 
@@ -71,11 +68,7 @@ class VectorStore:
         lc_docs = []
         for doc in documents:
             # Stringify metadata values — ChromaDB requirement
-            metadata = {
-                k: str(v)
-                for k, v in doc.get("metadata", {}).items()
-                if v is not None
-            }
+            metadata = {k: str(v) for k, v in doc.get("metadata", {}).items() if v is not None}
             lc_docs.append(Document(page_content=doc["text"], metadata=metadata))
 
         self.chroma.add_documents(lc_docs)
@@ -86,8 +79,8 @@ class VectorStore:
         self,
         query: str,
         top_k: int = None,
-        metadata_filter: Optional[Dict[str, Any]] = None,
-    ) -> List[Dict[str, Any]]:
+        metadata_filter: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
         """
         Search for similar documents using semantic similarity.
 
@@ -104,9 +97,7 @@ class VectorStore:
 
         # Use similarity_search_with_score which returns raw L2 distances
         # (lower = more similar), matching the behaviour of the old chromadb client.
-        results = self.chroma.similarity_search_with_score(
-            query, k=top_k, filter=metadata_filter
-        )
+        results = self.chroma.similarity_search_with_score(query, k=top_k, filter=metadata_filter)
 
         formatted = [
             {"text": doc.page_content, "metadata": doc.metadata, "distance": score}
@@ -130,8 +121,8 @@ class VectorStore:
         )
 
     def get_by_metadata(
-        self, metadata_filter: Dict[str, Any], top_k: int = None
-    ) -> List[Dict[str, Any]]:
+        self, metadata_filter: dict[str, Any], top_k: int = None
+    ) -> list[dict[str, Any]]:
         """
         Fetch documents by metadata filter without a similarity search.
 
@@ -154,7 +145,7 @@ class VectorStore:
 
         docs = [
             {"text": text, "metadata": meta}
-            for text, meta in zip(result["documents"], result["metadatas"])
+            for text, meta in zip(result["documents"], result["metadatas"], strict=True)
         ]
         self.logger.info(f"Found {len(docs)} documents")
         return docs
@@ -169,7 +160,7 @@ class VectorStore:
             persist_directory=self.persist_directory,
         )
 
-    def get_collection_stats(self) -> Dict[str, Any]:
+    def get_collection_stats(self) -> dict[str, Any]:
         """
         Get statistics about the collection.
 
@@ -184,7 +175,7 @@ class VectorStore:
         }
 
     @staticmethod
-    def list_collections(persist_directory: str = None) -> List[str]:
+    def list_collections(persist_directory: str = None) -> list[str]:
         """
         Return all collection names stored in the ChromaDB at persist_directory.
 

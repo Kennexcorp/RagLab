@@ -6,15 +6,15 @@ Coordinates all components to provide end-to-end document ingestion and question
 import argparse
 import os
 from datetime import datetime
-from typing import Dict, Any, List, Tuple
+from typing import Any
 
+from chunking import TextChunker
 from config import Config
 from data_loader import DataLoader
-from chunking import TextChunker
-from vector_store import VectorStore
-from retriever import Retriever
 from generator import Generator
-from utils import setup_logging, PerformanceMonitor
+from retriever import Retriever
+from utils import PerformanceMonitor, setup_logging
+from vector_store import VectorStore
 
 
 class RAGSystem:
@@ -48,7 +48,7 @@ class RAGSystem:
 
         # Per-collection cache: {collection_name: (VectorStore, Retriever)}
         # VectorStore instances are cached to avoid reloading the embedding model.
-        self._collection_cache: Dict[str, Tuple[VectorStore, Retriever]] = {}
+        self._collection_cache: dict[str, tuple[VectorStore, Retriever]] = {}
 
         # Default collection — kept as named attributes for CLI backward compatibility
         self.vector_store = self._get_or_create_collection(Config.COLLECTION_NAME)[0]
@@ -64,14 +64,10 @@ class RAGSystem:
     # Internal helpers
     # ------------------------------------------------------------------
 
-    def _get_or_create_collection(
-        self, collection_name: str
-    ) -> Tuple[VectorStore, Retriever]:
+    def _get_or_create_collection(self, collection_name: str) -> tuple[VectorStore, Retriever]:
         """Return (VectorStore, Retriever) for the given collection, creating if needed."""
         if collection_name not in self._collection_cache:
-            vs = VectorStore(
-                collection_name=collection_name, log_level=self.log_level
-            )
+            vs = VectorStore(collection_name=collection_name, log_level=self.log_level)
             ret = Retriever(vector_store=vs, log_level=self.log_level)
             self._collection_cache[collection_name] = (vs, ret)
         return self._collection_cache[collection_name]
@@ -83,7 +79,7 @@ class RAGSystem:
     def _rewrite_query(
         self,
         question: str,
-        conversation_history: List[Dict[str, Any]],
+        conversation_history: list[dict[str, Any]],
         provider: str = None,
         model: str = None,
         api_key: str = None,
@@ -154,8 +150,7 @@ class RAGSystem:
         vs, ret = self._get_or_create_collection(collection_name)
 
         self.logger.info(
-            f"Ingesting data from {source} (type: {source_type}, "
-            f"collection: {collection_name})"
+            f"Ingesting data from {source} (type: {source_type}, collection: {collection_name})"
         )
         self.performance_monitor.start_timer("data_ingestion")
 
@@ -218,9 +213,7 @@ class RAGSystem:
         collection_name = collection_name or Config.COLLECTION_NAME
         vs, ret = self._get_or_create_collection(collection_name)
 
-        self.logger.info(
-            f"Ingesting document: '{title}' → collection '{collection_name}'"
-        )
+        self.logger.info(f"Ingesting document: '{title}' → collection '{collection_name}'")
         self.performance_monitor.start_timer("data_ingestion")
 
         document = {
@@ -271,8 +264,8 @@ class RAGSystem:
         system_prompt: str = None,
         retrieval_strategy: str = None,
         semantic_weight: float = None,
-        conversation_history: List[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        conversation_history: list[dict[str, Any]] = None,
+    ) -> dict[str, Any]:
         """
         Query the RAG system.
 
@@ -295,9 +288,7 @@ class RAGSystem:
         collection_name = collection_name or Config.COLLECTION_NAME
         _, ret = self._get_or_create_collection(collection_name)
 
-        self.logger.info(
-            f"Query in collection '{collection_name}': '{question}'"
-        )
+        self.logger.info(f"Query in collection '{collection_name}': '{question}'")
         self.performance_monitor.reset()
         self.performance_monitor.start_timer("query_processing")
 
@@ -306,15 +297,19 @@ class RAGSystem:
         if conversation_history:
             try:
                 search_question = self._rewrite_query(
-                    question, conversation_history,
-                    provider=provider, model=model, api_key=api_key,
+                    question,
+                    conversation_history,
+                    provider=provider,
+                    model=model,
+                    api_key=api_key,
                 )
             except Exception as exc:
                 self.logger.warning(f"Query rewrite failed, using original: {exc}")
 
         self.performance_monitor.start_timer("retrieval")
         context_data = ret.build_context(
-            search_question, top_k=top_k,
+            search_question,
+            top_k=top_k,
             strategy=retrieval_strategy,
             semantic_weight=semantic_weight,
         )
@@ -345,11 +340,15 @@ class RAGSystem:
 
         self.performance_monitor.start_timer("generation")
         if include_sources:
-            response = gen.generate_with_sources(question, context_data,
-                                                 conversation_history=conversation_history)
+            response = gen.generate_with_sources(
+                question, context_data, conversation_history=conversation_history
+            )
         else:
-            response = gen.generate(question, context_data["context"],
-                                    conversation_history=conversation_history)
+            response = gen.generate(
+                question,
+                context_data["context"],
+                conversation_history=conversation_history,
+            )
         self.performance_monitor.end_timer("generation")
 
         response["question"] = question
@@ -365,11 +364,11 @@ class RAGSystem:
     # Collection management
     # ------------------------------------------------------------------
 
-    def list_collections(self) -> List[str]:
+    def list_collections(self) -> list[str]:
         """Return all collection names in the vector store."""
         return VectorStore.list_collections()
 
-    def get_collection_stats(self, collection_name: str = None) -> Dict[str, Any]:
+    def get_collection_stats(self, collection_name: str = None) -> dict[str, Any]:
         """
         Get stats for a specific collection.
 
@@ -396,7 +395,7 @@ class RAGSystem:
     # Stats + clear (default collection, for backward compatibility)
     # ------------------------------------------------------------------
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get system statistics for the default collection."""
         vector_stats = self.vector_store.get_collection_stats()
         return {
@@ -453,15 +452,11 @@ def main():
         help="Collection name (defaults to COLLECTION_NAME in .env)",
     )
     parser.add_argument("--query", type=str, help="Question to ask")
-    parser.add_argument(
-        "--top-k", type=int, default=5, help="Number of results to retrieve"
-    )
+    parser.add_argument("--top-k", type=int, default=5, help="Number of results to retrieve")
     parser.add_argument("--stats", action="store_true", help="Show system statistics")
     parser.add_argument("--list-collections", action="store_true", help="List all collections")
     parser.add_argument("--clear", action="store_true", help="Clear collection data")
-    parser.add_argument(
-        "--interactive", action="store_true", help="Start interactive mode"
-    )
+    parser.add_argument("--interactive", action="store_true", help="Start interactive mode")
     parser.add_argument(
         "--log-level",
         type=str,
@@ -496,12 +491,10 @@ def main():
         print(f"Chunk Size: {stats['config']['chunk_size']}")
 
     if args.query:
-        response = rag.query(
-            args.query, top_k=args.top_k, collection_name=args.collection
-        )
+        response = rag.query(args.query, top_k=args.top_k, collection_name=args.collection)
         print(f"\n=== Question ===\n{response['question']}")
         print(f"\n=== Answer ===\n{response.get('answer_with_citations', response['answer'])}")
-        print(f"\n=== Metadata ===")
+        print("\n=== Metadata ===")
         print(f"Sources: {response.get('num_sources', 0)}")
         print(f"Model: {response.get('model', 'N/A')}")
         print(f"Tokens: {response.get('tokens_used', 'N/A')}")
