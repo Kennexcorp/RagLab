@@ -8,8 +8,8 @@ from typing import Any
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-from config import Config
-from utils import setup_logging
+from raglab.config import Config
+from raglab.utils import setup_logging
 
 # All supported strategy identifiers
 STRATEGIES = [

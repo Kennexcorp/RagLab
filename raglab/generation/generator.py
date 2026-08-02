@@ -9,9 +9,9 @@ from typing import Any
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.prompts import ChatPromptTemplate
 
-from config import Config
-from models import QueryResponse
-from utils import setup_logging, timer
+from raglab.config import Config
+from raglab.models import QueryResponse
+from raglab.utils import setup_logging, timer
 
 _HUMAN_MSG = (
     "Context:\n{context}\n\n"

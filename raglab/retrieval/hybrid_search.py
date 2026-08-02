@@ -11,7 +11,7 @@ from langchain_classic.retrievers import EnsembleRetriever
 from langchain_community.retrievers import BM25Retriever
 from langchain_core.documents import Document
 
-from utils import setup_logging
+from raglab.utils import setup_logging
 
 
 class LangChainHybridRetriever:
@@ -165,7 +165,7 @@ class LangChainHybridRetriever:
 
 if __name__ == "__main__":
     # Example usage
-    from vector_store import VectorStore
+    from raglab.retrieval.vector_store import VectorStore
 
     sample_docs = [
         {

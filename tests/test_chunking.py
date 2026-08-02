@@ -4,7 +4,7 @@ Unit tests for chunking module.
 
 import pytest
 
-from chunking import TextChunker
+from raglab.ingestion.chunking import TextChunker
 
 
 class TestTextChunker:

@@ -7,14 +7,14 @@ import argparse
 import os
 from typing import Any
 
-from chunking import TextChunker
-from config import Config
-from data_loader import DataLoader
-from generator import Generator
-from models import DocumentMetadata, QueryResponse
-from retriever import Retriever
-from utils import PerformanceMonitor, setup_logging
-from vector_store import VectorStore
+from raglab.config import Config
+from raglab.generation.generator import Generator
+from raglab.ingestion.chunking import TextChunker
+from raglab.ingestion.data_loader import DataLoader
+from raglab.models import DocumentMetadata, QueryResponse
+from raglab.retrieval.retriever import Retriever
+from raglab.retrieval.vector_store import VectorStore
+from raglab.utils import PerformanceMonitor, setup_logging
 
 
 class RAGSystem:
@@ -27,7 +27,7 @@ class RAGSystem:
         Args:
             log_level: Logging level
         """
-        _log_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "rag_system.log")
+        _log_file = os.path.join(Config.PROJECT_ROOT, "rag_system.log")
         self.logger = setup_logging(log_level, log_file=_log_file)
         self.log_level = log_level
         self.logger.info("Initializing RAG System")

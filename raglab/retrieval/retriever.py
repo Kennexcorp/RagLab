@@ -27,11 +27,11 @@ for _cls in [
         setattr(_lcvs, _cls, type(_cls, (), {}))
 del _cls
 
-from config import Config  # noqa: E402
-from hybrid_search import LangChainHybridRetriever  # noqa: E402
-from models import ContextBundle, RetrievedChunk  # noqa: E402
-from utils import count_tokens, format_context_for_llm, setup_logging, timer  # noqa: E402
-from vector_store import VectorStore  # noqa: E402
+from raglab.config import Config  # noqa: E402
+from raglab.models import ContextBundle, RetrievedChunk  # noqa: E402
+from raglab.retrieval.hybrid_search import LangChainHybridRetriever  # noqa: E402
+from raglab.retrieval.vector_store import VectorStore  # noqa: E402
+from raglab.utils import count_tokens, format_context_for_llm, setup_logging, timer  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Strategy registry (mirrors chunking.py's STRATEGIES / STRATEGY_INFO)

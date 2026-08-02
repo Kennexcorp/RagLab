@@ -13,9 +13,9 @@ from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
 from pydantic import BaseModel, Field
 
-from config import Config
-from rag_system import RAGSystem
-from utils import setup_logging
+from raglab.config import Config
+from raglab.rag_system import RAGSystem
+from raglab.utils import setup_logging
 
 logger = setup_logging("INFO")
 rag_system = RAGSystem(log_level="INFO")

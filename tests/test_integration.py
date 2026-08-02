@@ -6,7 +6,7 @@ import os
 
 import pytest
 
-from rag_system import RAGSystem
+from raglab.rag_system import RAGSystem
 
 
 class TestRAGSystemIntegration:

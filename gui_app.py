@@ -18,11 +18,11 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 import streamlit as st
 
-from chunking import STRATEGIES, STRATEGY_INFO
-from config import Config
-from document_parser import DocumentParser
-from rag_system import RAGSystem
-from retriever import RETRIEVAL_STRATEGIES, RETRIEVAL_STRATEGY_INFO
+from raglab.config import Config
+from raglab.ingestion.chunking import STRATEGIES, STRATEGY_INFO
+from raglab.ingestion.document_parser import DocumentParser
+from raglab.rag_system import RAGSystem
+from raglab.retrieval.retriever import RETRIEVAL_STRATEGIES, RETRIEVAL_STRATEGY_INFO
 
 # ---------------------------------------------------------------------------
 # Provider → sensible model defaults
@@ -517,8 +517,8 @@ def render_chunk_tab() -> None:
             st.warning("Paste some text to preview.")
             return
         try:
-            from chunking import TextChunker
-            from utils import count_tokens
+            from raglab.ingestion.chunking import TextChunker
+            from raglab.utils import count_tokens
 
             chunker = TextChunker(
                 chunk_size=chunk_size,
@@ -793,7 +793,7 @@ def render_chat_tab(rag: RAGSystem) -> None:
 # ---------------------------------------------------------------------------
 def _build_generator_for_comparison():
     """Build a Generator using the current session LLM settings."""
-    from generator import Generator
+    from raglab.generation.generator import Generator
 
     return Generator(
         provider=st.session_state["llm_provider"],
@@ -973,7 +973,7 @@ def render_compare_tab(rag: RAGSystem) -> None:
                 llm_answer = None
                 if include_llm and chunks:
                     try:
-                        from utils import format_context_for_llm
+                        from raglab.utils import format_context_for_llm
 
                         ctx = format_context_for_llm(chunks)
                         gen = _build_generator_for_comparison()

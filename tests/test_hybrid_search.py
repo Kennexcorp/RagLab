@@ -4,7 +4,7 @@ Test hybrid search functionality using LangChainHybridRetriever.
 
 import pytest
 
-from hybrid_search import LangChainHybridRetriever
+from raglab.retrieval.hybrid_search import LangChainHybridRetriever
 
 SAMPLE_DOCS = [
     {"text": "Q4 revenue increased by 25%", "metadata": {"category": "finance"}},

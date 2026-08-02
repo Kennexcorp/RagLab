@@ -12,7 +12,7 @@ class Settings(BaseSettings):
     """Centralized configuration for RAG system."""
 
     model_config = SettingsConfigDict(
-        env_file=Path(__file__).parent / ".env",
+        env_file=Path(__file__).parent.parent / ".env",
         env_file_encoding="utf-8",
         extra="ignore",
     )
@@ -64,7 +64,7 @@ class Settings(BaseSettings):
     # Project paths (derived, not env-configurable)
     @property
     def PROJECT_ROOT(self) -> Path:
-        return Path(__file__).parent
+        return Path(__file__).parent.parent
 
     @property
     def DATA_DIR(self) -> Path:

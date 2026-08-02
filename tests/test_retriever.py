@@ -4,8 +4,8 @@ Unit tests for retriever module.
 
 import pytest
 
-from retriever import Retriever
-from vector_store import VectorStore
+from raglab.retrieval.retriever import Retriever
+from raglab.retrieval.vector_store import VectorStore
 
 
 class TestRetriever:

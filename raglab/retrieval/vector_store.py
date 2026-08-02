@@ -10,8 +10,8 @@ from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
 
-from config import Config
-from utils import retry_on_error, setup_logging, timer
+from raglab.config import Config
+from raglab.utils import retry_on_error, setup_logging, timer
 
 
 class VectorStore:

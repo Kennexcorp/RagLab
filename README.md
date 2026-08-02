@@ -71,19 +71,19 @@ The app opens at `http://localhost:8501`. Use the **Upload Documents** tab to in
 
 ```bash
 # Ingest a JSON or CSV file
-uv run python rag_system.py --ingest data.json --source-type json
+uv run python -m raglab.rag_system --ingest data.json --source-type json
 
 # Ask a one-shot question
-uv run python rag_system.py --query "What does this document say about revenue?"
+uv run python -m raglab.rag_system --query "What does this document say about revenue?"
 
 # Interactive REPL
-uv run python rag_system.py --interactive
+uv run python -m raglab.rag_system --interactive
 
 # View system stats
-uv run python rag_system.py --stats
+uv run python -m raglab.rag_system --stats
 
 # Clear a collection
-uv run python rag_system.py --clear
+uv run python -m raglab.rag_system --clear
 ```
 
 ## GUI Overview
@@ -180,18 +180,19 @@ Upload PDF, DOCX, TXT, JSON, or CSV files. Supports multi-file upload. Form rese
 
 | File | Purpose |
 |---|---|
-| `rag_system.py` | Main orchestrator + CLI entry point |
-| `config.py` | All configuration (reads from `.env`) |
+| `raglab/rag_system.py` | Main orchestrator + CLI entry point |
+| `raglab/config.py` | All configuration (reads from `.env`) |
 | `gui_app.py` | Streamlit UI (chat interface + upload) |
-| `data_loader.py` | JSON/CSV ingestion |
-| `document_parser.py` | PDF, DOCX, TXT parsing via LangChain loaders |
-| `chunking.py` | 10 text splitting strategies |
-| `vector_store.py` | ChromaDB wrapper |
-| `retriever.py` | 8 retrieval strategies |
-| `generator.py` | LLM answer generation with multi-turn history |
-| `hybrid_search.py` | BM25 + EnsembleRetriever logic |
+| `raglab/ingestion/data_loader.py` | JSON/CSV ingestion |
+| `raglab/ingestion/document_parser.py` | PDF, DOCX, TXT parsing via LangChain loaders |
+| `raglab/ingestion/chunking.py` | 10 text splitting strategies |
+| `raglab/retrieval/vector_store.py` | ChromaDB wrapper |
+| `raglab/retrieval/retriever.py` | 8 retrieval strategies |
+| `raglab/generation/generator.py` | LLM answer generation with multi-turn history |
+| `raglab/retrieval/hybrid_search.py` | BM25 + EnsembleRetriever logic |
 | `mcp_server.py` | MCP server exposing RAG as tools |
-| `utils.py` | Logging, timers, retry decorators |
+| `raglab/utils.py` | Logging, timers, retry decorators |
+| `raglab/models.py` | Pydantic models for validation and response consistency |
 
 ## Configuration
 
@@ -249,7 +250,7 @@ PARENT_CHUNK_SIZE=1024
 ## Python API
 
 ```python
-from rag_system import RAGSystem
+from raglab.rag_system import RAGSystem
 
 rag = RAGSystem()
 

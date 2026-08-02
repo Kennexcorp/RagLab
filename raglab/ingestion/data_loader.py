@@ -9,7 +9,7 @@ from typing import Any
 
 import pandas as pd
 
-from utils import setup_logging, validate_file_exists
+from raglab.utils import setup_logging, validate_file_exists
 
 
 class DataLoader:
