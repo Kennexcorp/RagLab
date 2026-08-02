@@ -59,40 +59,6 @@ def setup_logging(log_level: str = "INFO", log_file: str = None) -> logging.Logg
     return logger
 
 
-def retry_on_error(max_retries: int = 3, delay: float = 1.0):
-    """
-    Decorator to retry a function on error.
-
-    Args:
-        max_retries: Maximum number of retry attempts
-        delay: Delay between retries in seconds
-    """
-
-    def decorator(func: Callable) -> Callable:
-        @functools.wraps(func)
-        def wrapper(*args, **kwargs) -> Any:
-            logger = logging.getLogger("RAG_System")
-            last_exception = None
-
-            for attempt in range(max_retries):
-                try:
-                    return func(*args, **kwargs)
-                except Exception as e:
-                    last_exception = e
-                    logger.warning(
-                        f"Attempt {attempt + 1}/{max_retries} failed for {func.__name__}: {str(e)}"
-                    )
-                    if attempt < max_retries - 1:
-                        time.sleep(delay * (attempt + 1))  # Exponential backoff
-
-            logger.error(f"All {max_retries} attempts failed for {func.__name__}")
-            raise last_exception
-
-        return wrapper
-
-    return decorator
-
-
 def timer(func: Callable) -> Callable:
     """
     Decorator to measure function execution time.

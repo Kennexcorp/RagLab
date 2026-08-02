@@ -4,14 +4,16 @@ Uses LangChain's Chroma integration and HuggingFaceEmbeddings for simplified
 embedding generation and vector database operations.
 """
 
+import logging
 from typing import Any
 
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
+from tenacity import before_sleep_log, retry, stop_after_attempt, wait_exponential
 
 from raglab.config import Config
-from raglab.utils import retry_on_error, setup_logging, timer
+from raglab.utils import setup_logging, timer
 
 
 class VectorStore:
@@ -51,7 +53,12 @@ class VectorStore:
 
         self.logger.info(f"Vector store initialized with collection: {self.collection_name}")
 
-    @retry_on_error(max_retries=3, delay=1.0)
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=1, max=10),
+        before_sleep=before_sleep_log(logging.getLogger("RAG_System"), logging.WARNING),
+        reraise=True,
+    )
     def add_documents(self, documents: list[dict[str, Any]]) -> None:
         """
         Add documents to the vector store.

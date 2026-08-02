@@ -4,17 +4,36 @@ Integration tests for the complete RAG system.
 
 import os
 
+import chromadb.errors
 import pytest
 
+from raglab.config import Config
 from raglab.rag_system import RAGSystem
+from raglab.retrieval.retriever import bm25_index_path
+from raglab.retrieval.vector_store import VectorStore
+
+TEST_COLLECTION = "test-integration"
 
 
 class TestRAGSystemIntegration:
     """Integration tests for end-to-end RAG functionality."""
 
     @pytest.fixture(autouse=True)
-    def setup_and_teardown(self):
-        """Set up and tear down test fixtures."""
+    def setup_and_teardown(self, monkeypatch):
+        """Set up and tear down test fixtures, isolated from the real default collection."""
+        # Isolate: point Config.COLLECTION_NAME at a dedicated test collection so this
+        # suite never touches the real default collection used by the GUI/CLI/MCP server.
+        monkeypatch.setattr(Config, "COLLECTION_NAME", TEST_COLLECTION)
+
+        # Guard against a prior interrupted run leaving stale data behind.
+        try:
+            VectorStore.delete_collection(TEST_COLLECTION)
+        except chromadb.errors.NotFoundError:
+            pass
+        test_bm25_path = bm25_index_path(TEST_COLLECTION)
+        if test_bm25_path.exists():
+            test_bm25_path.unlink()
+
         # Setup
         self.rag = RAGSystem(log_level="WARNING")  # Reduce log noise in tests
 
@@ -36,8 +55,10 @@ class TestRAGSystemIntegration:
 
         yield
 
-        # Teardown
-        self.rag.clear_data()
+        # Teardown: clear_data() also resets this collection's BM25 index file,
+        # which delete_collection() alone would leave behind.
+        self.rag.clear_data(TEST_COLLECTION)
+        self.rag.delete_collection(TEST_COLLECTION)
 
     def test_data_ingestion(self):
         """Test complete data ingestion pipeline."""

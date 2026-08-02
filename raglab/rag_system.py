@@ -12,7 +12,7 @@ from raglab.generation.generator import Generator
 from raglab.ingestion.chunking import TextChunker
 from raglab.ingestion.data_loader import DataLoader
 from raglab.models import DocumentMetadata, QueryResponse
-from raglab.retrieval.retriever import Retriever
+from raglab.retrieval.retriever import Retriever, bm25_index_path
 from raglab.retrieval.vector_store import VectorStore
 from raglab.utils import PerformanceMonitor, setup_logging
 
@@ -414,9 +414,9 @@ class RAGSystem:
             hr.is_fitted = False
             hr.bm25_retriever = None
             hr.ensemble_retriever = None
-            bm25_path = str(Config.BM25_INDEX_PATH)
-            if os.path.exists(bm25_path):
-                os.remove(bm25_path)
+            path = bm25_index_path(collection_name)
+            if path.exists():
+                path.unlink()
 
         self.logger.info(f"Collection '{collection_name}' cleared")
 

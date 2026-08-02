@@ -78,10 +78,6 @@ class Settings(BaseSettings):
     def PERSIST_DIRECTORY(self) -> str:
         return str(self.VECTOR_DB_DIR)
 
-    @property
-    def BM25_INDEX_PATH(self) -> Path:
-        return self.VECTOR_DB_DIR / "bm25_index.pkl"
-
     def validate(self) -> bool:
         """Validate configuration settings."""
         errors = []

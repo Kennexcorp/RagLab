@@ -6,8 +6,8 @@ to replace manual prompt construction and per-provider API calls.
 
 from typing import Any
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 
 from raglab.config import Config
 from raglab.models import QueryResponse
@@ -56,6 +56,7 @@ class Generator:
         self._prompt = ChatPromptTemplate.from_messages(
             [
                 ("system", self.system_prompt),
+                MessagesPlaceholder("history", optional=True),
                 ("human", _HUMAN_MSG),
             ]
         )
@@ -118,34 +119,21 @@ class Generator:
         """
         self.logger.info(f"Generating answer for query: '{query}'")
 
-        if conversation_history:
-            history_msgs = []
-            for turn in conversation_history:
-                if turn.get("role") == "user":
-                    history_msgs.append(HumanMessage(content=turn["content"]))
-                elif turn.get("role") == "assistant":
-                    history_msgs.append(AIMessage(content=turn["content"]))
-            assembled_human = _HUMAN_MSG.format(context=context, question=query)
-            prompt_sent = (
-                f"[System]\n{self.system_prompt}\n\n"
-                + "".join(
-                    f"[{'User' if isinstance(m, HumanMessage) else 'Assistant'}]\n{m.content}\n\n"
-                    for m in history_msgs
-                )
-                + f"[User]\n{assembled_human}"
-            )
-            messages = (
-                [SystemMessage(content=self.system_prompt)]
-                + history_msgs
-                + [HumanMessage(content=assembled_human)]
-            )
-            response = self._llm.invoke(messages)
-        else:
-            prompt_sent = (
-                f"[System]\n{self.system_prompt}\n\n"
-                f"[User]\n{_HUMAN_MSG.format(context=context, question=query)}"
-            )
-            response = self.chain.invoke({"context": context, "question": query})
+        history_msgs = []
+        for turn in conversation_history or []:
+            if turn.get("role") == "user":
+                history_msgs.append(HumanMessage(content=turn["content"]))
+            elif turn.get("role") == "assistant":
+                history_msgs.append(AIMessage(content=turn["content"]))
+
+        invoke_args = {"context": context, "question": query, "history": history_msgs}
+        response = self.chain.invoke(invoke_args)
+
+        role_labels = {"system": "System", "human": "User", "ai": "Assistant"}
+        prompt_sent = "\n\n".join(
+            f"[{role_labels.get(msg.type, msg.type.capitalize())}]\n{msg.content}"
+            for msg in self._prompt.invoke(invoke_args).to_messages()
+        )
 
         usage = getattr(response, "usage_metadata", None) or {}
         finish_reason = (

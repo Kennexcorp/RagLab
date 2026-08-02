@@ -11,6 +11,7 @@ from typing import Any
 # langchain_community v0.4+ removed several vectorstore classes that langchain_classic's
 # SelfQueryRetriever still tries to import. Stub them all out so imports never fail.
 import langchain_community.vectorstores as _lcvs
+from langchain_core.documents import Document
 
 for _cls in [
     "DatabricksVectorSearch",
@@ -32,6 +33,12 @@ from raglab.models import ContextBundle, RetrievedChunk  # noqa: E402
 from raglab.retrieval.hybrid_search import LangChainHybridRetriever  # noqa: E402
 from raglab.retrieval.vector_store import VectorStore  # noqa: E402
 from raglab.utils import count_tokens, format_context_for_llm, setup_logging, timer  # noqa: E402
+
+
+def bm25_index_path(collection_name: str) -> Path:
+    """Path to the BM25 index file for a given collection (namespaced, not shared)."""
+    return Path(Config.PERSIST_DIRECTORY) / "bm25_indexes" / f"{collection_name}.pkl"
+
 
 # ---------------------------------------------------------------------------
 # Strategy registry (mirrors chunking.py's STRATEGIES / STRATEGY_INFO)
@@ -165,11 +172,13 @@ class Retriever:
 
     def save_hybrid_index(self):
         if self.use_hybrid and self.hybrid_retriever:
-            self.hybrid_retriever.save_index(Config.BM25_INDEX_PATH)
+            path = bm25_index_path(self.vector_store.collection_name)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            self.hybrid_retriever.save_index(path)
 
     def load_hybrid_index(self):
         if self.use_hybrid and self.hybrid_retriever:
-            self.hybrid_retriever.load_index(Config.BM25_INDEX_PATH)
+            self.hybrid_retriever.load_index(bm25_index_path(self.vector_store.collection_name))
 
     # ------------------------------------------------------------------
     # LLM factory (used by multi-query, hyde, self-query)
@@ -199,6 +208,18 @@ class Retriever:
     # ------------------------------------------------------------------
     # Strategy implementations
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _docs_to_results(docs: list[Document], top_k: int) -> list[dict[str, Any]]:
+        """Convert LangChain Documents to result dicts with rank-based similarity scores."""
+        return [
+            {
+                "text": doc.page_content,
+                "metadata": doc.metadata,
+                "similarity_score": 1.0 / (i + 1),
+            }
+            for i, doc in enumerate(docs[:top_k])
+        ]
 
     def _retrieve_semantic(
         self,
@@ -242,14 +263,7 @@ class Retriever:
     def _retrieve_mmr(self, query: str, top_k: int) -> list[dict[str, Any]]:
         retriever = self.vector_store.as_retriever(k=top_k, search_type="mmr")
         docs = retriever.invoke(query)
-        return [
-            {
-                "text": doc.page_content,
-                "metadata": doc.metadata,
-                "similarity_score": 1.0 / (i + 1),
-            }
-            for i, doc in enumerate(docs)
-        ]
+        return self._docs_to_results(docs, top_k)
 
     def _retrieve_multi_query(self, query: str, top_k: int) -> list[dict[str, Any]]:
         from langchain_classic.retrievers.multi_query import MultiQueryRetriever
@@ -258,14 +272,7 @@ class Retriever:
         llm = self._build_llm()
         mq_retriever = MultiQueryRetriever.from_llm(retriever=base_retriever, llm=llm)
         docs = mq_retriever.invoke(query)
-        return [
-            {
-                "text": doc.page_content,
-                "metadata": doc.metadata,
-                "similarity_score": 1.0 / (i + 1),
-            }
-            for i, doc in enumerate(docs[:top_k])
-        ]
+        return self._docs_to_results(docs, top_k)
 
     def _retrieve_reranking(self, query: str, top_k: int) -> list[dict[str, Any]]:
         try:
@@ -277,8 +284,7 @@ class Retriever:
 
         # Bypass the similarity threshold — fetch raw candidates directly from the
         # vector store so the cross-encoder has a full pool to rerank.
-        raw = self.vector_store.search(query=query, top_k=top_k * 3)
-        candidates = [{**doc, "similarity_score": 1 / (1 + doc.get("distance", 0))} for doc in raw]
+        candidates = self.vector_store.search(query=query, top_k=top_k * 3)
         if not candidates:
             return []
 
@@ -361,14 +367,7 @@ class Retriever:
         except Exception as exc:
             self.logger.warning(f"Self-query failed ({exc}), falling back to semantic")
             return self._retrieve_semantic(query, top_k)
-        return [
-            {
-                "text": doc.page_content,
-                "metadata": doc.metadata,
-                "similarity_score": 1.0 / (i + 1),
-            }
-            for i, doc in enumerate(docs[:top_k])
-        ]
+        return self._docs_to_results(docs, top_k)
 
     def _retrieve_parent_child(self, query: str, top_k: int) -> list[dict[str, Any]]:
         from langchain_classic.retrievers.parent_document_retriever import (
@@ -407,14 +406,7 @@ class Retriever:
         except Exception as exc:
             self.logger.warning(f"Parent-child retrieval failed ({exc}), falling back to semantic")
             return self._retrieve_semantic(query, top_k)
-        return [
-            {
-                "text": doc.page_content,
-                "metadata": doc.metadata,
-                "similarity_score": 1.0 / (i + 1),
-            }
-            for i, doc in enumerate(docs[:top_k])
-        ]
+        return self._docs_to_results(docs, top_k)
 
     # ------------------------------------------------------------------
     # Public interface
