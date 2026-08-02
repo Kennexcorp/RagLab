@@ -10,6 +10,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.prompts import ChatPromptTemplate
 
 from config import Config
+from models import QueryResponse
 from utils import setup_logging, timer
 
 _HUMAN_MSG = (
@@ -154,13 +155,14 @@ class Generator:
         )
 
         self.logger.info("Answer generated successfully")
-        return {
-            "answer": response.content,
-            "model": self.model,
-            "tokens_used": usage.get("total_tokens"),
-            "finish_reason": finish_reason,
-            "prompt_sent": prompt_sent,
-        }
+        resp = QueryResponse(
+            answer=response.content,
+            model=self.model,
+            tokens_used=usage.get("total_tokens"),
+            finish_reason=finish_reason,
+            prompt_sent=prompt_sent,
+        )
+        return resp.model_dump()
 
     def generate_with_sources(
         self,
@@ -182,8 +184,6 @@ class Generator:
         sources = context_data.get("sources", [])
 
         response = self.generate(query, context, conversation_history=conversation_history)
-        response["sources"] = sources
-        response["num_sources"] = len(sources)
 
         answer = response["answer"]
         if sources:
@@ -191,11 +191,18 @@ class Generator:
             for i, source in enumerate(sources, 1):
                 source_info = source.get("metadata", {}).get("source", "Unknown")
                 citations += f"\n[{i}] {source_info}"
-            response["answer_with_citations"] = answer + citations
+            answer_with_citations = answer + citations
         else:
-            response["answer_with_citations"] = answer
+            answer_with_citations = answer
 
-        return response
+        overridden = {"sources", "num_sources", "answer_with_citations"}
+        resp = QueryResponse(
+            **{k: v for k, v in response.items() if k not in overridden},
+            sources=sources,
+            num_sources=len(sources),
+            answer_with_citations=answer_with_citations,
+        )
+        return resp.model_dump()
 
 
 if __name__ == "__main__":

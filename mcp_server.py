@@ -6,11 +6,12 @@ Exposes document ingestion, querying, and collection management as MCP tools.
 
 import asyncio
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, Literal
 
 from mcp.server import Server
 from mcp.server.stdio import stdio_server
 from mcp.types import TextContent, Tool
+from pydantic import BaseModel, Field
 
 from config import Config
 from rag_system import RAGSystem
@@ -20,6 +21,55 @@ logger = setup_logging("INFO")
 rag_system = RAGSystem(log_level="INFO")
 
 app = Server("rag-server")
+
+
+# ---------------------------------------------------------------------------
+# Tool argument models — source of truth for both the MCP inputSchema and
+# runtime validation, so the two can never drift apart.
+# ---------------------------------------------------------------------------
+
+
+class IngestDataArgs(BaseModel):
+    file_path: str = Field(min_length=1, description="Path to the data file (JSON or CSV)")
+    source_type: Literal["json", "csv"] = Field("json", description="Type of data source")
+    collection_name: str = Field(
+        "", description="Target collection name (defaults to the system default)"
+    )
+
+
+class IngestDocumentArgs(BaseModel):
+    text: str = Field(min_length=1, description="Full plain-text content of the document")
+    title: str = Field(min_length=1, description="Human-readable document title")
+    category: str = Field(
+        min_length=1, description="Document category, e.g. 'finance', 'hr', 'legal'"
+    )
+    source: str = Field(min_length=1, description="Source label, e.g. original filename")
+    description: str = Field("", description="Optional freeform description")
+    tags: str = Field("", description="Comma-separated tags, e.g. 'Q4,2026,revenue'")
+    author: str = Field("", description="Optional author name")
+    collection_name: str = Field(
+        "", description="Target collection name (defaults to the system default)"
+    )
+
+
+class QueryArgs(BaseModel):
+    question: str = Field(min_length=1, description="Natural language question")
+    top_k: int = Field(5, gt=0, description="Number of context chunks to retrieve (default: 5)")
+    collection_name: str = Field(
+        "", description="Collection to search (defaults to the system default)"
+    )
+
+
+class SearchDocumentsArgs(BaseModel):
+    query: str = Field(min_length=1, description="Search query")
+    top_k: int = Field(5, gt=0, description="Number of results to return (default: 5)")
+    collection_name: str = Field(
+        "", description="Collection to search (defaults to the system default)"
+    )
+
+
+class DeleteCollectionArgs(BaseModel):
+    collection_name: str = Field(min_length=1, description="Name of the collection to delete")
 
 
 @app.list_tools()
@@ -32,27 +82,7 @@ async def list_tools() -> list[Tool]:
                 "Ingest a JSON or CSV file into the RAG system. "
                 "The file is loaded, chunked, and stored in the vector database."
             ),
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "file_path": {
-                        "type": "string",
-                        "description": "Path to the data file (JSON or CSV)",
-                    },
-                    "source_type": {
-                        "type": "string",
-                        "enum": ["json", "csv"],
-                        "description": "Type of data source",
-                        "default": "json",
-                    },
-                    "collection_name": {
-                        "type": "string",
-                        "description": "Target collection name (defaults to the system default)",
-                        "default": "",
-                    },
-                },
-                "required": ["file_path"],
-            },
+            inputSchema=IngestDataArgs.model_json_schema(),
         ),
         Tool(
             name="ingest_document",
@@ -60,48 +90,7 @@ async def list_tools() -> list[Tool]:
                 "Ingest a plain-text document with rich metadata into the RAG system. "
                 "Use this when you have already extracted text from a file."
             ),
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "text": {
-                        "type": "string",
-                        "description": "Full plain-text content of the document",
-                    },
-                    "title": {
-                        "type": "string",
-                        "description": "Human-readable document title",
-                    },
-                    "category": {
-                        "type": "string",
-                        "description": "Document category, e.g. 'finance', 'hr', 'legal'",
-                    },
-                    "source": {
-                        "type": "string",
-                        "description": "Source label, e.g. original filename",
-                    },
-                    "description": {
-                        "type": "string",
-                        "description": "Optional freeform description",
-                        "default": "",
-                    },
-                    "tags": {
-                        "type": "string",
-                        "description": "Comma-separated tags, e.g. 'Q4,2026,revenue'",
-                        "default": "",
-                    },
-                    "author": {
-                        "type": "string",
-                        "description": "Optional author name",
-                        "default": "",
-                    },
-                    "collection_name": {
-                        "type": "string",
-                        "description": "Target collection name (defaults to the system default)",
-                        "default": "",
-                    },
-                },
-                "required": ["text", "title", "category", "source"],
-            },
+            inputSchema=IngestDocumentArgs.model_json_schema(),
         ),
         Tool(
             name="query",
@@ -110,26 +99,7 @@ async def list_tools() -> list[Tool]:
                 "Retrieves relevant context and returns an AI-generated answer with "
                 "source citations."
             ),
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "question": {
-                        "type": "string",
-                        "description": "Natural language question",
-                    },
-                    "top_k": {
-                        "type": "integer",
-                        "description": "Number of context chunks to retrieve (default: 5)",
-                        "default": 5,
-                    },
-                    "collection_name": {
-                        "type": "string",
-                        "description": "Collection to search (defaults to the system default)",
-                        "default": "",
-                    },
-                },
-                "required": ["question"],
-            },
+            inputSchema=QueryArgs.model_json_schema(),
         ),
         Tool(
             name="search_documents",
@@ -137,23 +107,7 @@ async def list_tools() -> list[Tool]:
                 "Search for relevant documents without generating an answer. "
                 "Returns raw results with similarity scores."
             ),
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "query": {"type": "string", "description": "Search query"},
-                    "top_k": {
-                        "type": "integer",
-                        "description": "Number of results to return (default: 5)",
-                        "default": 5,
-                    },
-                    "collection_name": {
-                        "type": "string",
-                        "description": "Collection to search (defaults to the system default)",
-                        "default": "",
-                    },
-                },
-                "required": ["query"],
-            },
+            inputSchema=SearchDocumentsArgs.model_json_schema(),
         ),
         Tool(
             name="list_collections",
@@ -177,16 +131,7 @@ async def list_tools() -> list[Tool]:
         Tool(
             name="delete_collection",
             description="Permanently delete a collection and all its documents. Use with caution.",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "collection_name": {
-                        "type": "string",
-                        "description": "Name of the collection to delete",
-                    },
-                },
-                "required": ["collection_name"],
-            },
+            inputSchema=DeleteCollectionArgs.model_json_schema(),
         ),
         Tool(
             name="clear_collection",
@@ -221,31 +166,31 @@ async def call_tool(name: str, arguments: Any) -> Sequence[TextContent]:
         col = arguments.get("collection_name") or None  # treat empty string as None
 
         if name == "ingest_data":
-            file_path = arguments.get("file_path")
-            source_type = arguments.get("source_type", "json")
+            args = IngestDataArgs.model_validate(arguments)
             num_chunks = rag_system.ingest_data(
-                source=file_path, source_type=source_type, collection_name=col
+                source=args.file_path, source_type=args.source_type, collection_name=col
             )
             target_collection = col or Config.COLLECTION_NAME
             return [
                 TextContent(
                     type="text",
                     text=(
-                        f"Ingested {num_chunks} chunks from '{file_path}' "
+                        f"Ingested {num_chunks} chunks from '{args.file_path}' "
                         f"into collection '{target_collection}'."
                     ),
                 )
             ]
 
         elif name == "ingest_document":
+            args = IngestDocumentArgs.model_validate(arguments)
             num_chunks = rag_system.ingest_document_with_metadata(
-                text=arguments.get("text"),
-                title=arguments.get("title"),
-                category=arguments.get("category"),
-                source=arguments.get("source"),
-                description=arguments.get("description", ""),
-                tags=arguments.get("tags", ""),
-                author=arguments.get("author", ""),
+                text=args.text,
+                title=args.title,
+                category=args.category,
+                source=args.source,
+                description=args.description,
+                tags=args.tags,
+                author=args.author,
                 collection_name=col,
             )
             target_collection = col or Config.COLLECTION_NAME
@@ -253,20 +198,19 @@ async def call_tool(name: str, arguments: Any) -> Sequence[TextContent]:
                 TextContent(
                     type="text",
                     text=(
-                        f"Ingested '{arguments.get('title')}': {num_chunks} chunks "
+                        f"Ingested '{args.title}': {num_chunks} chunks "
                         f"stored in '{target_collection}'."
                     ),
                 )
             ]
 
         elif name == "query":
-            question = arguments.get("question")
-            top_k = arguments.get("top_k", 5)
-            response = rag_system.query(question, top_k=top_k, collection_name=col)
+            args = QueryArgs.model_validate(arguments)
+            response = rag_system.query(args.question, top_k=args.top_k, collection_name=col)
 
             answer = response.get("answer_with_citations", response.get("answer", ""))
             result = (
-                f"Question: {question}\n\n"
+                f"Question: {args.question}\n\n"
                 f"Answer:\n{answer}\n\n"
                 f"Sources used: {response.get('num_sources', 0)} | "
                 f"Model: {response.get('model', 'N/A')} | "
@@ -275,15 +219,14 @@ async def call_tool(name: str, arguments: Any) -> Sequence[TextContent]:
             return [TextContent(type="text", text=result)]
 
         elif name == "search_documents":
-            query = arguments.get("query")
-            top_k = arguments.get("top_k", 5)
+            args = SearchDocumentsArgs.model_validate(arguments)
             _, ret = rag_system._get_or_create_collection(col or Config.COLLECTION_NAME)
-            results = ret.retrieve(query, top_k=top_k)
+            results = ret.retrieve(args.query, top_k=args.top_k)
 
             if not results:
                 return [TextContent(type="text", text="No results found.")]
 
-            result_text = f"Found {len(results)} results for: '{query}'\n\n"
+            result_text = f"Found {len(results)} results for: '{args.query}'\n\n"
             for i, result in enumerate(results, 1):
                 text = result["text"][:200] + ("..." if len(result["text"]) > 200 else "")
                 result_text += (
@@ -315,9 +258,9 @@ async def call_tool(name: str, arguments: Any) -> Sequence[TextContent]:
             return [TextContent(type="text", text=result)]
 
         elif name == "delete_collection":
-            collection_name = arguments.get("collection_name")
-            rag_system.delete_collection(collection_name)
-            return [TextContent(type="text", text=f"Collection '{collection_name}' deleted.")]
+            args = DeleteCollectionArgs.model_validate(arguments)
+            rag_system.delete_collection(args.collection_name)
+            return [TextContent(type="text", text=f"Collection '{args.collection_name}' deleted.")]
 
         elif name == "clear_collection":
             rag_system.clear_data(collection_name=col)

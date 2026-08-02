@@ -29,6 +29,7 @@ del _cls
 
 from config import Config  # noqa: E402
 from hybrid_search import LangChainHybridRetriever  # noqa: E402
+from models import ContextBundle, RetrievedChunk  # noqa: E402
 from utils import count_tokens, format_context_for_llm, setup_logging, timer  # noqa: E402
 from vector_store import VectorStore  # noqa: E402
 
@@ -447,24 +448,26 @@ class Retriever:
         self.logger.info(f"Retrieving for: '{query}' (strategy={strategy}, top_k={top_k})")
 
         if strategy == "semantic":
-            return self._retrieve_semantic(query, top_k, metadata_filter)
+            results = self._retrieve_semantic(query, top_k, metadata_filter)
         elif strategy == "hybrid":
-            return self._retrieve_hybrid(query, top_k, semantic_weight)
+            results = self._retrieve_hybrid(query, top_k, semantic_weight)
         elif strategy == "mmr":
-            return self._retrieve_mmr(query, top_k)
+            results = self._retrieve_mmr(query, top_k)
         elif strategy == "multi-query":
-            return self._retrieve_multi_query(query, top_k)
+            results = self._retrieve_multi_query(query, top_k)
         elif strategy == "reranking":
-            return self._retrieve_reranking(query, top_k)
+            results = self._retrieve_reranking(query, top_k)
         elif strategy == "hyde":
-            return self._retrieve_hyde(query, top_k)
+            results = self._retrieve_hyde(query, top_k)
         elif strategy == "self-query":
-            return self._retrieve_self_query(query, top_k)
+            results = self._retrieve_self_query(query, top_k)
         elif strategy == "parent-child":
-            return self._retrieve_parent_child(query, top_k)
+            results = self._retrieve_parent_child(query, top_k)
         else:
             self.logger.warning(f"Unknown strategy '{strategy}', falling back to semantic")
-            return self._retrieve_semantic(query, top_k, metadata_filter)
+            results = self._retrieve_semantic(query, top_k, metadata_filter)
+
+        return [RetrievedChunk(**doc).model_dump() for doc in results]
 
     def build_context(
         self,
@@ -491,7 +494,7 @@ class Retriever:
 
         if not documents:
             self.logger.warning("No relevant documents found")
-            return {"context": "", "sources": [], "num_sources": 0}
+            return ContextBundle().model_dump()
 
         context = format_context_for_llm(documents)
 
@@ -506,12 +509,12 @@ class Retriever:
                 context = format_context_for_llm(documents)
                 context_tokens = count_tokens(context)
 
-        return {
-            "context": context,
-            "sources": documents,
-            "num_sources": len(documents),
-            "total_tokens": context_tokens,
-        }
+        return ContextBundle(
+            context=context,
+            sources=documents,
+            num_sources=len(documents),
+            total_tokens=context_tokens,
+        ).model_dump()
 
     def retrieve_by_metadata(
         self, metadata_filter: dict[str, Any], top_k: int = None

@@ -5,13 +5,13 @@ Coordinates all components to provide end-to-end document ingestion and question
 
 import argparse
 import os
-from datetime import datetime
 from typing import Any
 
 from chunking import TextChunker
 from config import Config
 from data_loader import DataLoader
 from generator import Generator
+from models import DocumentMetadata, QueryResponse
 from retriever import Retriever
 from utils import PerformanceMonitor, setup_logging
 from vector_store import VectorStore
@@ -205,10 +205,15 @@ class RAGSystem:
         """
         if not text.strip():
             raise ValueError("text must not be empty")
-        if not title.strip():
-            raise ValueError("title is required")
-        if not category.strip():
-            raise ValueError("category is required")
+
+        metadata = DocumentMetadata(
+            title=title,
+            category=category,
+            source=source,
+            description=description,
+            tags=tags,
+            author=author,
+        )
 
         collection_name = collection_name or Config.COLLECTION_NAME
         vs, ret = self._get_or_create_collection(collection_name)
@@ -216,23 +221,7 @@ class RAGSystem:
         self.logger.info(f"Ingesting document: '{title}' → collection '{collection_name}'")
         self.performance_monitor.start_timer("data_ingestion")
 
-        document = {
-            "text": text,
-            "metadata": {
-                "id": None,
-                "timestamp": None,
-                "date": None,
-                "category": category,
-                "source": source,
-                "type": "uploaded_document",
-                "extracted_at": datetime.now().isoformat(),
-                "record_index": 0,
-                "title": title,
-                "description": description,
-                "tags": tags,
-                "author": author,
-            },
-        }
+        document = {"text": text, "metadata": metadata.model_dump()}
 
         chunker = self._make_chunker(chunk_size, chunk_overlap, chunk_strategy)
         chunks = chunker.chunk_documents([document])
@@ -317,12 +306,10 @@ class RAGSystem:
 
         if not context_data["context"]:
             self.logger.warning("No relevant context found")
-            return {
-                "question": question,
-                "answer": "I couldn't find relevant information to answer your question.",
-                "sources": [],
-                "num_sources": 0,
-            }
+            return QueryResponse(
+                question=question,
+                answer="I couldn't find relevant information to answer your question.",
+            ).model_dump()
 
         # Use a per-request Generator when any runtime LLM setting is provided;
         # otherwise fall back to the default Generator initialised at startup.
