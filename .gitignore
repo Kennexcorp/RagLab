@@ -10,9 +10,11 @@ env/
 venv/
 .conda/
 .claude/
+.agents/
 
 # Testing
 .pytest_cache/
+.ruff_cache/
 .coverage
 htmlcov/
 

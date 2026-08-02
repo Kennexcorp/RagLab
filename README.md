@@ -210,7 +210,7 @@ EMBEDDING_MODEL=all-MiniLM-L6-v2
 
 # Vector Store
 COLLECTION_NAME=documents
-PERSIST_DIRECTORY=./chroma_db
+# PERSIST_DIRECTORY is derived from the project root (vector_db/) and isn't env-configurable
 
 # Chunking
 CHUNK_SIZE=512
