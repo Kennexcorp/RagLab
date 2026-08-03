@@ -3,6 +3,11 @@
 All notable changes to RAGLab are documented here.
 This file is generated from [conventional commits](https://www.conventionalcommits.org) by [git-cliff](https://git-cliff.org).
 
+## [0.1.2] - 2026-08-03
+
+### Bug Fixes
+
+- Stop the Explore tab segfaulting when projecting a query
 ## [0.1.1] - 2026-08-03
 
 ### Bug Fixes
@@ -12,6 +17,7 @@ This file is generated from [conventional commits](https://www.conventionalcommi
 ### Documentation
 
 - Document the latest tag published by metadata-action
+- Update changelog for v0.1.1
 ## [0.1.0] - 2026-08-03
 
 ### Bug Fixes
