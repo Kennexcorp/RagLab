@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str | None = None
     ANTHROPIC_API_KEY: str | None = None
     LLM_MODEL: str = "llama3.2"
+    # Containers cannot reach an Ollama on the host's localhost; override this to
+    # http://host.docker.internal:11434 or a compose service name.
+    OLLAMA_BASE_URL: str = "http://localhost:11434"
     LLM_TEMPERATURE: float = 0.7
     LLM_MAX_TOKENS: int = 1000
 

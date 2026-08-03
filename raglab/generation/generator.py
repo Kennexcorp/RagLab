@@ -94,7 +94,11 @@ class Generator:
         elif self.provider == "ollama":
             from langchain_ollama import ChatOllama
 
-            return ChatOllama(model=self.model, temperature=self.temperature)
+            return ChatOllama(
+                model=self.model,
+                temperature=self.temperature,
+                base_url=Config.OLLAMA_BASE_URL,
+            )
 
         else:
             raise ValueError(f"Unsupported provider: {self.provider}")

@@ -86,6 +86,66 @@ uv run python -m raglab.rag_system --stats
 uv run python -m raglab.rag_system --clear
 ```
 
+## Docker
+
+Prebuilt images are published to GitHub Container Registry for `linux/amd64` and
+`linux/arm64` (Apple Silicon pulls the arm64 variant automatically). The embedding model,
+cross-encoder reranker, spaCy model, and NLTK data are all baked in, so the container
+starts without downloading anything.
+
+```bash
+docker pull ghcr.io/kennexcorp/raglab:0.1.0
+
+# GUI on http://localhost:8501, with ingested data persisted to the host
+docker run --rm -p 8501:8501 \
+  -v "$PWD/vector_db:/app/vector_db" \
+  -v "$PWD/data:/app/data" \
+  --env-file .env \
+  ghcr.io/kennexcorp/raglab:0.1.0
+```
+
+The default command is the Streamlit GUI. Override it for the other entry points:
+
+```bash
+# CLI (interactive REPL needs -it)
+docker run --rm -it -v "$PWD/vector_db:/app/vector_db" \
+  ghcr.io/kennexcorp/raglab:0.1.0 python -m raglab.rag_system --interactive
+
+# MCP server (stdio transport, no port)
+docker run --rm -i -v "$PWD/vector_db:/app/vector_db" \
+  ghcr.io/kennexcorp/raglab:0.1.0 python mcp_server.py
+```
+
+Mount `/app/vector_db` and `/app/data` or ingested collections are lost when the container
+is removed.
+
+**Using Ollama from the container:** `localhost` inside the container is not your host, so
+set `OLLAMA_BASE_URL=http://host.docker.internal:11434` (Docker Desktop) or point it at an
+Ollama service on the same Docker network. Cloud providers need no extra setup beyond the
+API key in `.env`.
+
+**Air-gapped hosts:** the default embedding model, reranker, spaCy model, and NLTK data
+are cached in the image, but HuggingFace still makes a revision check on load and errors
+out if the network is unreachable rather than absent-but-routable. Add `-e HF_HUB_OFFLINE=1`
+to skip that check and load purely from cache. It is not the default because
+`EMBEDDING_MODEL` and `RERANKER_MODEL` are configurable, and offline mode would stop you
+pulling a model that is not already baked in.
+
+### Image tags
+
+Images are published on tagged releases only.
+
+| Tag | Points at |
+|---|---|
+| `1.2.3` | A specific release |
+| `1.2` | Latest patch on that minor line |
+
+Building locally:
+
+```bash
+docker build -t raglab:dev .
+```
+
 ## GUI Overview
 
 ### Sidebar Controls
@@ -289,9 +349,39 @@ Available MCP tools: `ingest_data`, `ingest_document`, `query`, `search_document
 ## Testing
 
 ```bash
-uv run pytest tests/ -v
-uv run pytest tests/ --cov=. --cov-report=html
+uv run pytest -v
+uv run pytest --cov=raglab --cov-report=html
 ```
+
+Tests are isolated from your working tree: `tests/conftest.py` redirects the vector store,
+BM25 indexes, and log file into a temp directory, so running the suite never touches your
+real `vector_db/`.
+
+## CI
+
+`.github/workflows/ci.yml` runs on every pull request and push to `main`: `ruff check`,
+`ruff format --check`, and the test suite with a coverage gate (`--cov-fail-under=55`).
+On pushes to `main` it also builds the Docker image as a validation step.
+
+## Releasing
+
+Releases are cut by pushing a version tag. A GitHub Actions workflow runs the tests,
+publishes the multi-arch Docker image to `ghcr.io/kennexcorp/raglab`, and creates a GitHub
+Release with auto-generated notes. The repo-level [`CHANGELOG.md`](CHANGELOG.md) is
+regenerated from conventional commits with [git-cliff](https://git-cliff.org).
+
+```bash
+# 1. bump the version in pyproject.toml (must match the tag), commit it
+# 2. regenerate and commit the changelog for the new version:
+uv run git-cliff --tag vX.Y.Z -o CHANGELOG.md
+# 3. tag and push — the workflow does the rest:
+git tag vX.Y.Z
+git push origin vX.Y.Z
+```
+
+The release workflow fails fast if the tag does not match the `version` in
+`pyproject.toml`. Pre-release tags (`v1.2.3-rc1`) are marked as prereleases and publish
+only the exact version tag, not the `{{major}}.{{minor}}` line.
 
 ## Troubleshooting
 
