@@ -16,6 +16,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
 
+# Must be set before numba is first imported (the Explore tab pulls it in via umap).
+# numba's default threading layer selection picks OpenMP, and torch ships its own
+# OpenMP runtime; with both loaded, numba's parallel regions segfault during
+# UMAP.transform(). Its own workqueue layer avoids the second runtime and stays
+# multi-threaded. See tests/test_gui_env.py.
+os.environ.setdefault("NUMBA_THREADING_LAYER", "workqueue")
+
 import streamlit as st
 
 from raglab.config import Config
@@ -335,9 +342,7 @@ def render_upload_tab(rag: RAGSystem) -> None:
                 height=122,
             )
 
-        submitted = st.form_submit_button(
-            "Ingest Document", type="primary", use_container_width=True
-        )
+        submitted = st.form_submit_button("Ingest Document", type="primary", width="stretch")
 
     if submitted:
         _handle_upload(
@@ -495,9 +500,9 @@ def render_chunk_tab() -> None:
         "Preview Chunks",
         type="primary",
         key="_preview_chunks",
-        use_container_width=True,
+        width="stretch",
     )
-    if col_default.button("Set as Default", key="_chunk_set_default", use_container_width=True):
+    if col_default.button("Set as Default", key="_chunk_set_default", width="stretch"):
         st.session_state["chunk_size"] = chunk_size
         st.session_state["chunk_overlap"] = chunk_overlap
         st.session_state["chunk_strategy"] = strategy
@@ -713,7 +718,7 @@ def render_chat_tab(rag: RAGSystem) -> None:
         label_visibility="collapsed",
         key="_query_input",
     )
-    ask = col_btn.button("Ask", type="primary", use_container_width=True, key="_ask_btn")
+    ask = col_btn.button("Ask", type="primary", width="stretch", key="_ask_btn")
 
     if ask:
         if not question.strip():
@@ -909,7 +914,7 @@ def render_compare_tab(rag: RAGSystem) -> None:
         st.session_state["ret_tab_similarity_threshold"] = ret_threshold
 
     col_run, col_default = st.columns([3, 1])
-    if col_default.button("Set as Default", key="_ret_set_default", use_container_width=True):
+    if col_default.button("Set as Default", key="_ret_set_default", width="stretch"):
         st.session_state["top_k_default"] = ret_top_k
         st.session_state["semantic_weight"] = ret_semantic_weight
         st.session_state["retrieval_strategy"] = ret_strategy
@@ -940,9 +945,7 @@ def render_compare_tab(rag: RAGSystem) -> None:
         key="_compare_include_llm",
     )
 
-    if col_run.button(
-        "Run Comparison", type="primary", key="_run_compare", use_container_width=True
-    ):
+    if col_run.button("Run Comparison", type="primary", key="_run_compare", width="stretch"):
         if not query.strip():
             st.warning("Enter a query first.")
             st.stop()
@@ -1272,7 +1275,7 @@ def render_explore_tab(rag: RAGSystem) -> None:
         margin=dict(l=0, r=0, t=40, b=0),
         legend=dict(itemsizing="constant"),
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
     if query.strip() and highlight_set:
         st.caption(
