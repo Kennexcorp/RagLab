@@ -3,12 +3,17 @@
 All notable changes to RAGLab are documented here.
 This file is generated from [conventional commits](https://www.conventionalcommits.org) by [git-cliff](https://git-cliff.org).
 
-## [Unreleased]
+## [0.1.0] - 2026-08-03
 
 ### Bug Fixes
 
 - Update project directory path in README for clarity
 - Handle missing LangChain imports with stubs, improve error messaging, and add prompt logging to generation and .env persistence to GUI
+- Pin setup-uv to v9.0.0
+
+### CI/CD
+
+- Align release process with EchoBrief
 
 ### Chores
 
