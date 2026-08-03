@@ -94,14 +94,14 @@ cross-encoder reranker, spaCy model, and NLTK data are all baked in, so the cont
 starts without downloading anything.
 
 ```bash
-docker pull ghcr.io/kennexcorp/raglab:latest
+docker pull ghcr.io/kennexcorp/raglab:0.1.0
 
 # GUI on http://localhost:8501, with ingested data persisted to the host
 docker run --rm -p 8501:8501 \
   -v "$PWD/vector_db:/app/vector_db" \
   -v "$PWD/data:/app/data" \
   --env-file .env \
-  ghcr.io/kennexcorp/raglab:latest
+  ghcr.io/kennexcorp/raglab:0.1.0
 ```
 
 The default command is the Streamlit GUI. Override it for the other entry points:
@@ -109,11 +109,11 @@ The default command is the Streamlit GUI. Override it for the other entry points
 ```bash
 # CLI (interactive REPL needs -it)
 docker run --rm -it -v "$PWD/vector_db:/app/vector_db" \
-  ghcr.io/kennexcorp/raglab:latest python -m raglab.rag_system --interactive
+  ghcr.io/kennexcorp/raglab:0.1.0 python -m raglab.rag_system --interactive
 
 # MCP server (stdio transport, no port)
 docker run --rm -i -v "$PWD/vector_db:/app/vector_db" \
-  ghcr.io/kennexcorp/raglab:latest python mcp_server.py
+  ghcr.io/kennexcorp/raglab:0.1.0 python mcp_server.py
 ```
 
 Mount `/app/vector_db` and `/app/data` or ingested collections are lost when the container
@@ -133,12 +133,12 @@ pulling a model that is not already baked in.
 
 ### Image tags
 
+Images are published on tagged releases only.
+
 | Tag | Points at |
 |---|---|
-| `latest` | Most recent released version |
-| `1.2.3`, `1.2`, `1` | A specific release |
-| `main` | Latest commit on `main` |
-| `sha-<short>` | A specific commit |
+| `1.2.3` | A specific release |
+| `1.2` | Latest patch on that minor line |
 
 Building locally:
 
@@ -357,18 +357,31 @@ Tests are isolated from your working tree: `tests/conftest.py` redirects the vec
 BM25 indexes, and log file into a temp directory, so running the suite never touches your
 real `vector_db/`.
 
-## CI/CD and releases
+## CI
 
-| Workflow | Trigger | What it does |
-|---|---|---|
-| `.github/workflows/ci.yml` | PRs and pushes to `main` | `ruff check`, the pytest suite with a HuggingFace cache, and a Docker build on both architectures (no push) |
-| `.github/workflows/publish.yml` | Pushes to `main`, published releases | Builds `linux/amd64` and `linux/arm64` natively, pushes by digest, merges into one multi-arch manifest on GHCR |
-| `.github/workflows/release-please.yml` | Pushes to `main` | Maintains a release PR that bumps the version and CHANGELOG; merging it tags `vX.Y.Z` and publishes a GitHub Release |
+`.github/workflows/ci.yml` runs on every pull request and push to `main`: `ruff check`,
+`ruff format --check`, and the test suite with a coverage gate (`--cov-fail-under=55`).
+On pushes to `main` it also builds the Docker image as a validation step.
 
-Releases are driven by [Conventional Commits](https://www.conventionalcommits.org/).
-`fix:` produces a patch release, `feat:` a minor one, and `feat!:` (or a `BREAKING CHANGE:`
-footer) a major one. Commits that do not follow the convention are left out of the
-changelog and do not trigger a release, so use conventional PR titles when squash-merging.
+## Releasing
+
+Releases are cut by pushing a version tag. A GitHub Actions workflow runs the tests,
+publishes the multi-arch Docker image to `ghcr.io/kennexcorp/raglab`, and creates a GitHub
+Release with auto-generated notes. The repo-level [`CHANGELOG.md`](CHANGELOG.md) is
+regenerated from conventional commits with [git-cliff](https://git-cliff.org).
+
+```bash
+# 1. bump the version in pyproject.toml (must match the tag), commit it
+# 2. regenerate and commit the changelog for the new version:
+uv run git-cliff --tag vX.Y.Z -o CHANGELOG.md
+# 3. tag and push — the workflow does the rest:
+git tag vX.Y.Z
+git push origin vX.Y.Z
+```
+
+The release workflow fails fast if the tag does not match the `version` in
+`pyproject.toml`. Pre-release tags (`v1.2.3-rc1`) are marked as prereleases and publish
+only the exact version tag, not the `{{major}}.{{minor}}` line.
 
 ## Troubleshooting
 
