@@ -1,0 +1,15 @@
+# Everything is excluded by default; the Dockerfile copies what it needs explicitly.
+*
+
+# Dependency resolution
+!pyproject.toml
+!uv.lock
+
+# Application source
+!raglab/
+!gui_app.py
+!mcp_server.py
+
+# Re-exclude caches that live inside the allowed source tree
+raglab/**/__pycache__
+raglab/**/*.pyc

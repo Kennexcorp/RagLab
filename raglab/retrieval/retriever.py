@@ -201,7 +201,7 @@ class Retriever:
         elif provider == "ollama":
             from langchain_ollama import ChatOllama
 
-            return ChatOllama(model=model, temperature=0)
+            return ChatOllama(model=model, temperature=0, base_url=Config.OLLAMA_BASE_URL)
         else:
             raise ValueError(f"Unsupported provider for retrieval LLM: {provider}")
 
