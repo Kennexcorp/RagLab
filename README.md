@@ -94,14 +94,14 @@ cross-encoder reranker, spaCy model, and NLTK data are all baked in, so the cont
 starts without downloading anything.
 
 ```bash
-docker pull ghcr.io/kennexcorp/raglab:0.1.0
+docker pull ghcr.io/kennexcorp/raglab:latest
 
 # GUI on http://localhost:8501, with ingested data persisted to the host
 docker run --rm -p 8501:8501 \
   -v "$PWD/vector_db:/app/vector_db" \
   -v "$PWD/data:/app/data" \
   --env-file .env \
-  ghcr.io/kennexcorp/raglab:0.1.0
+  ghcr.io/kennexcorp/raglab:latest
 ```
 
 The default command is the Streamlit GUI. Override it for the other entry points:
@@ -109,11 +109,11 @@ The default command is the Streamlit GUI. Override it for the other entry points
 ```bash
 # CLI (interactive REPL needs -it)
 docker run --rm -it -v "$PWD/vector_db:/app/vector_db" \
-  ghcr.io/kennexcorp/raglab:0.1.0 python -m raglab.rag_system --interactive
+  ghcr.io/kennexcorp/raglab:latest python -m raglab.rag_system --interactive
 
 # MCP server (stdio transport, no port)
 docker run --rm -i -v "$PWD/vector_db:/app/vector_db" \
-  ghcr.io/kennexcorp/raglab:0.1.0 python mcp_server.py
+  ghcr.io/kennexcorp/raglab:latest python mcp_server.py
 ```
 
 Mount `/app/vector_db` and `/app/data` or ingested collections are lost when the container
@@ -137,8 +137,12 @@ Images are published on tagged releases only.
 
 | Tag | Points at |
 |---|---|
+| `latest` | Most recent stable release |
 | `1.2.3` | A specific release |
 | `1.2` | Latest patch on that minor line |
+
+Pre-release tags (`v1.2.3-rc1`) publish only the exact version, leaving `latest` and the
+`{{major}}.{{minor}}` line pointing at the last stable release.
 
 Building locally:
 
