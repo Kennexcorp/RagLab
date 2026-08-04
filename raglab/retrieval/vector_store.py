@@ -157,6 +157,26 @@ class VectorStore:
         self.logger.info(f"Found {len(docs)} documents")
         return docs
 
+    def get_all_documents(self) -> list[dict[str, Any]]:
+        """
+        Fetch every document in the collection, text and metadata only.
+
+        Chroma is the authoritative copy of the chunk text, so this can rebuild
+        derived indexes (e.g. BM25) without re-ingesting or re-embedding.
+
+        Returns:
+            List of documents with text and metadata
+        """
+        result = self.chroma._collection.get(include=["documents", "metadatas"])
+        docs = [
+            {"text": text, "metadata": meta or {}}
+            for text, meta in zip(
+                result.get("documents") or [], result.get("metadatas") or [], strict=True
+            )
+        ]
+        self.logger.info(f"Fetched {len(docs)} documents from '{self.collection_name}'")
+        return docs
+
     def clear_collection(self) -> None:
         """Clear all documents from the collection."""
         self.logger.warning("Clearing entire collection")

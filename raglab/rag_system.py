@@ -164,8 +164,11 @@ class RAGSystem:
         vs.add_documents(chunks)
 
         if ret.use_hybrid:
-            self.logger.info("Fitting hybrid search on ingested documents")
-            ret.fit_hybrid_search(chunks)
+            # Rebuild from the whole collection, not just these chunks: BM25 fitting
+            # replaces the index wholesale, so fitting on one batch would drop every
+            # previously ingested document out of keyword search.
+            self.logger.info("Rebuilding hybrid search index")
+            ret.rebuild_hybrid_index()
 
         self.performance_monitor.end_timer("data_ingestion")
         self.logger.info(f"Ingestion complete: {len(chunks)} chunks")
@@ -230,7 +233,8 @@ class RAGSystem:
         vs.add_documents(chunks)
 
         if ret.use_hybrid:
-            ret.fit_hybrid_search(chunks)
+            # See ingest_data: rebuild from the full collection, not this batch.
+            ret.rebuild_hybrid_index()
 
         self.performance_monitor.end_timer("data_ingestion")
         self.logger.info(f"Document ingestion complete: {len(chunks)} chunks")

@@ -743,6 +743,12 @@ def render_chat_tab(rag: RAGSystem) -> None:
                 st.error(f"Query failed: {exc}")
                 st.stop()
 
+        # Surface a strategy that could not run, so the answer is not mistaken for
+        # the strategy actually selected in the sidebar.
+        _, _ret_used = rag._get_or_create_collection(collection)
+        if _ret_used.last_fallback:
+            st.warning(_ret_used.last_fallback, icon="⚠️")
+
         perf = response.get("performance", {})
         total_ms = perf.get("query_processing", {}).get("duration", 0) * 1000
         trace = None
@@ -826,6 +832,10 @@ def _render_compare_card(col, strategy: str, result: dict) -> None:
             if error:
                 st.error(f"Error: {error}")
                 return
+
+            fallback = result.get("fallback")
+            if fallback:
+                st.warning(f"Did not run as {label} — {fallback}", icon="⚠️")
 
             chunks = result.get("chunks", [])
             if not chunks:
@@ -990,6 +1000,9 @@ def render_compare_tab(rag: RAGSystem) -> None:
                     "elapsed_ms": elapsed_ms,
                     "error": None,
                     "llm_answer": llm_answer,
+                    # Without this a strategy that silently degraded to semantic
+                    # looks like a genuine result, making the comparison misleading.
+                    "fallback": ret.last_fallback,
                 }
             except Exception as exc:
                 results[strategy] = {
@@ -997,6 +1010,7 @@ def render_compare_tab(rag: RAGSystem) -> None:
                     "elapsed_ms": (time.time() - t0) * 1000,
                     "error": str(exc),
                     "llm_answer": None,
+                    "fallback": None,
                 }
 
         status.empty()
@@ -1200,6 +1214,9 @@ def render_explore_tab(rag: RAGSystem) -> None:
                     top_k=st.session_state["top_k_default"],
                     strategy=st.session_state["retrieval_strategy"],
                 )
+                if ret.last_fallback:
+                    st.warning(ret.last_fallback, icon="⚠️")
+
                 retrieved_texts = {c.get("text", "")[:120] for c in retrieved}
                 highlight_set = {i for i, t in enumerate(texts) if t in retrieved_texts}
 

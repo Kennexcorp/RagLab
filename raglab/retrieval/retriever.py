@@ -160,6 +160,11 @@ class Retriever:
         # Parent-child doc store — created lazily in _retrieve_parent_child
         self._parent_child_retriever = None
 
+        # Set by retrieve() when the requested strategy could not run and a
+        # different one was used instead. Read by the GUI so the fallback is
+        # visible rather than buried in the log.
+        self.last_fallback: str | None = None
+
     # ------------------------------------------------------------------
     # Hybrid index management (unchanged)
     # ------------------------------------------------------------------
@@ -179,6 +184,27 @@ class Retriever:
     def load_hybrid_index(self):
         if self.use_hybrid and self.hybrid_retriever:
             self.hybrid_retriever.load_index(bm25_index_path(self.vector_store.collection_name))
+
+    def rebuild_hybrid_index(self) -> bool:
+        """Rebuild the BM25 index from every chunk currently in the collection.
+
+        Chroma holds the full corpus, so this recovers a keyword index that was
+        never written (collections ingested before per-collection indexes existed)
+        or that only covers part of the corpus. Returns True if an index was built.
+        """
+        if not (self.use_hybrid and self.hybrid_retriever):
+            return False
+
+        documents = self.vector_store.get_all_documents()
+        if not documents:
+            return False
+
+        self.logger.info(
+            f"Rebuilding BM25 index for '{self.vector_store.collection_name}' "
+            f"from {len(documents)} stored chunks"
+        )
+        self.fit_hybrid_search(documents)
+        return self.hybrid_retriever.is_fitted
 
     # ------------------------------------------------------------------
     # LLM factory (used by multi-query, hyde, self-query)
@@ -246,7 +272,16 @@ class Retriever:
     def _retrieve_hybrid(
         self, query: str, top_k: int, semantic_weight: float = None
     ) -> list[dict[str, Any]]:
+        if self.hybrid_retriever and not self.hybrid_retriever.is_fitted:
+            # No index on disk for this collection: rebuild it from Chroma rather
+            # than silently degrading to semantic.
+            self.rebuild_hybrid_index()
+
         if not (self.hybrid_retriever and self.hybrid_retriever.is_fitted):
+            self.last_fallback = (
+                "Hybrid search needs a BM25 keyword index, which could not be built for this "
+                "collection (it appears to be empty). Showing semantic results instead."
+            )
             self.logger.warning("Hybrid retriever not fitted — falling back to semantic")
             return self._retrieve_semantic(query, top_k)
 
@@ -331,6 +366,10 @@ class Retriever:
             # not be present in the installed langchain_community version.
             from langchain_community.query_constructors.chroma import ChromaTranslator
         except ImportError as exc:
+            self.last_fallback = (
+                f"Self-query needs extra packages that are not installed ({exc}). "
+                "Showing semantic results instead."
+            )
             self.logger.warning(f"Self-query imports failed ({exc}), falling back to semantic")
             return self._retrieve_semantic(query, top_k)
 
@@ -365,6 +404,7 @@ class Retriever:
             )
             docs = sq_retriever.invoke(query)
         except Exception as exc:
+            self.last_fallback = f"Self-query failed ({exc}). Showing semantic results instead."
             self.logger.warning(f"Self-query failed ({exc}), falling back to semantic")
             return self._retrieve_semantic(query, top_k)
         return self._docs_to_results(docs, top_k)
@@ -404,6 +444,9 @@ class Retriever:
         try:
             docs = self._parent_child_retriever.invoke(query)
         except Exception as exc:
+            self.last_fallback = (
+                f"Parent-child retrieval failed ({exc}). Showing semantic results instead."
+            )
             self.logger.warning(f"Parent-child retrieval failed ({exc}), falling back to semantic")
             return self._retrieve_semantic(query, top_k)
         return self._docs_to_results(docs, top_k)
@@ -436,6 +479,7 @@ class Retriever:
         """
         top_k = top_k or self.top_k
         strategy = strategy or self.strategy
+        self.last_fallback = None
 
         self.logger.info(f"Retrieving for: '{query}' (strategy={strategy}, top_k={top_k})")
 
@@ -456,6 +500,9 @@ class Retriever:
         elif strategy == "parent-child":
             results = self._retrieve_parent_child(query, top_k)
         else:
+            self.last_fallback = (
+                f"Unknown retrieval strategy '{strategy}'. Showing semantic results instead."
+            )
             self.logger.warning(f"Unknown strategy '{strategy}', falling back to semantic")
             results = self._retrieve_semantic(query, top_k, metadata_filter)
 
